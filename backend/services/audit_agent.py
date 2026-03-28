@@ -6,10 +6,9 @@ The agent has tools to:
   2. inspect / summarize a workbook
   3. parse & load Excel data into the audit engine
   4. run any combination of audits (revenue / inventory / payroll)
-  5. apply corrections directly to Excel cells
-  6. auto-fix all findings from a given audit
-  7. export a corrected copy of a file
-  8. view the corrections log
+  5. apply corrections directly to Excel cells (in place)
+  6. auto-fix all findings from a given audit (in place)
+  7. view the corrections log
 
 All state (uploaded file paths, parsed data cache, conversation history)
 is held at module level — fine for a single-user dev tool.
@@ -37,7 +36,6 @@ from .excel_reader import (
 )
 from .excel_writer import (
     edit_cell,
-    export_corrected_copy,
     get_corrections_log as _writer_get_log,
     clear_corrections_log as _writer_clear_log,
 )
@@ -205,26 +203,6 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
-            "name": "export_corrected_file",
-            "description": (
-                "Create a timestamped backup copy of an uploaded file (the "
-                "corrected version) so the user can download it."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "filename": {
-                        "type": "string",
-                        "description": "Name of the file to export a corrected copy of.",
-                    },
-                },
-                "required": ["filename"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "get_corrections_log",
             "description": "Return the full log of all corrections applied during this session.",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -241,9 +219,12 @@ _parsed_cache: dict[str, dict] = {}
 SYSTEM_PROMPT = """\
 You are **AuditAI**, an autonomous financial audit agent for small and mid-size businesses.
 
-You have tools to read, analyze, and **directly fix** Excel workbooks uploaded
-by the user.  You operate **without requiring human approval** for corrections —
-you identify discrepancies, fix them in the spreadsheets, and report what you did.
+You have tools to read, analyze, and **directly fix** Excel workbooks that the
+user has uploaded.  You operate **without requiring human approval** — you find
+discrepancies, edit the files **in place**, and report what you changed.
+
+IMPORTANT: You edit the original uploaded files directly. You do NOT create
+copies or new files. The user's files are modified in place.
 
 ## Your workflow
 
@@ -252,9 +233,9 @@ you identify discrepancies, fix them in the spreadsheets, and report what you di
    with purchase orders, and payroll with GL entries.
 3. **Auto-fix** every correctable discrepancy directly in the Excel files using
    `apply_correction` (for individual fixes) or `auto_fix_all` (bulk).
+   All edits are saved in place to the original files.
 4. **Report** a clear summary of all changes made, grouped by audit area.
-5. **Export** corrected copies of modified files so the user can download them.
-6. **Answer follow-ups** using the raw data or the corrections log.
+5. **Answer follow-ups** using the raw data or the corrections log.
 
 ## What you can fix autonomously
 
@@ -278,7 +259,7 @@ For these, explain the issue and recommend next steps.
 - Use markdown. Be concise but thorough.
 - Reference specific IDs (TXN-002, EMP-005, SKU HA-SERUM-50, PO-2847, etc.).
 - After fixing, always show a **Corrections Summary** table.
-- After all fixes, offer to export corrected files.
+- Remind the user that the original files have been updated in place.
 """
 
 # ── internal helpers ─────────────────────────────────────────────────────
@@ -569,11 +550,6 @@ def _handle_tool_call(name: str, args: dict) -> str:
 
     if name == "auto_fix_all":
         result = _auto_fix_findings(args["audit_type"])
-        return json.dumps(result, default=str)
-
-    if name == "export_corrected_file":
-        fp = _resolve(args["filename"])
-        result = export_corrected_copy(fp)
         return json.dumps(result, default=str)
 
     if name == "get_corrections_log":

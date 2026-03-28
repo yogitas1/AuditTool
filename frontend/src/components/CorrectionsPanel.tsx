@@ -15,38 +15,29 @@ interface Props {
   corrections: Correction[];
   isOpen: boolean;
   onToggle: () => void;
-  onDownload: (filename: string) => void;
-  modifiedFiles: string[];
 }
 
 const CorrectionsPanel: React.FC<Props> = ({
   corrections,
   isOpen,
   onToggle,
-  onDownload,
-  modifiedFiles,
 }) => {
   if (corrections.length === 0) return null;
+
+  const modifiedFiles = Array.from(new Set(corrections.map((c) => c.file)));
 
   return (
     <div className={`cp ${isOpen ? 'cp--open' : ''}`}>
       <button className="cp__header" onClick={onToggle}>
         <div className="cp__header-left">
           <span className="cp__total">
-            {corrections.length} correction{corrections.length !== 1 ? 's' : ''} applied
+            {corrections.length} correction{corrections.length !== 1 ? 's' : ''} applied in place
+          </span>
+          <span className="cp__files-hint">
+            ({modifiedFiles.join(', ')})
           </span>
         </div>
         <div className="cp__header-right">
-          {modifiedFiles.map((f) => (
-            <button
-              key={f}
-              className="cp__download-btn"
-              onClick={(e) => { e.stopPropagation(); onDownload(f); }}
-              title={`Download corrected ${f}`}
-            >
-              {f}
-            </button>
-          ))}
           <span className={`cp__chevron ${isOpen ? '' : 'cp__chevron--collapsed'}`}>
             ▾
           </span>

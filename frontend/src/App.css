@@ -607,21 +607,13 @@ body {
   white-space: nowrap;
 }
 
-.cp__download-btn {
+.cp__files-hint {
   font-size: 11px;
-  font-weight: 500;
-  color: #2563eb;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 5px;
-  padding: 3px 8px;
-  cursor: pointer;
+  font-weight: 400;
+  color: #6b7280;
   white-space: nowrap;
-  transition: background 0.12s;
-}
-
-.cp__download-btn:hover {
-  background: #dbeafe;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cp__chevron {

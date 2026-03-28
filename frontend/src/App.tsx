@@ -122,10 +122,6 @@ function App() {
     } catch { /* non-fatal */ }
   }, []);
 
-  const handleDownloadFile = useCallback((filename: string) => {
-    window.open(`${API_BASE}/api/files/download/${encodeURIComponent(filename)}`, '_blank');
-  }, []);
-
   // ── Chat API call ─────────────────────────────────────────────────────
   const callChatAPI = useCallback(async (text: string): Promise<void> => {
     setIsLoading(true);
@@ -310,8 +306,6 @@ function App() {
           corrections={corrections}
           isOpen={isCorrOpen}
           onToggle={() => setIsCorrOpen((v) => !v)}
-          onDownload={handleDownloadFile}
-          modifiedFiles={Array.from(new Set(corrections.map((c) => c.file)))}
         />
         <ChatWindow
           messages={messages}
