@@ -8,14 +8,20 @@ from .data_loader import load_amazon, load_inventory, load_payroll, load_quickbo
 # Revenue Audit
 # ---------------------------------------------------------------------------
 
-def run_revenue_audit() -> list[dict[str, Any]]:
+def run_revenue_audit(
+    qb_data: dict | None = None,
+    shopify_data: dict | None = None,
+    amazon_data: dict | None = None,
+) -> list[dict[str, Any]]:
     """
     Match QuickBooks transactions to Shopify invoices or Amazon orders via txn_ref.
     Flags amount discrepancies and wrong-period bookings.
+
+    When called without arguments, falls back to the bundled JSON fixtures.
     """
-    qb = load_quickbooks()
-    shopify = load_shopify()
-    amazon = load_amazon()
+    qb = qb_data or load_quickbooks()
+    shopify = shopify_data or load_shopify()
+    amazon = amazon_data or load_amazon()
 
     # Build lookup maps: txn_ref -> source record
     shopify_map: dict[str, dict] = {inv["txn_ref"]: inv for inv in shopify["invoices"]}
@@ -148,12 +154,12 @@ def run_revenue_audit() -> list[dict[str, Any]]:
 # Inventory Audit
 # ---------------------------------------------------------------------------
 
-def run_inventory_audit() -> list[dict[str, Any]]:
+def run_inventory_audit(inv_data: dict | None = None) -> list[dict[str, Any]]:
     """
     Compare system_count vs expected_count. Check PO received vs ordered qty.
     Prioritize findings by ABC category (A first).
     """
-    data = load_inventory()
+    data = inv_data or load_inventory()
     findings: list[dict[str, Any]] = []
 
     # Item-level count discrepancies
@@ -240,7 +246,7 @@ CA_SDI_RATE_CORRECT = 0.012
 CONTRACTOR_HOURS_THRESHOLD = 40
 
 
-def run_payroll_audit() -> list[dict[str, Any]]:
+def run_payroll_audit(pay_data: dict | None = None) -> list[dict[str, Any]]:
     """
     Checks:
     - Terminated employees still receiving pay
@@ -248,7 +254,7 @@ def run_payroll_audit() -> list[dict[str, Any]]:
     - Payroll total vs GL entry discrepancy
     - Incorrect CA SDI withholding rates
     """
-    data = load_payroll()
+    data = pay_data or load_payroll()
     findings: list[dict[str, Any]] = []
 
     for emp in data["employees"]:

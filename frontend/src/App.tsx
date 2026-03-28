@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import './App.css';
 import { AuditFinding, Message } from './types';
 import AuditSidebar from './components/AuditSidebar';
@@ -6,17 +6,26 @@ import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
 import FindingsSummaryPanel from './components/FindingsSummaryPanel';
 
+const API_BASE = 'http://localhost:8000';
+const CHAT_URL  = `${API_BASE}/api/chat`;
+const AUDIT_URL = `${API_BASE}/api/audit`;
+const UPLOAD_URL = `${API_BASE}/api/upload`;
+const FILES_URL = `${API_BASE}/api/files`;
+
+interface UploadedFile {
+  filename: string;
+  sheets: { name: string; row_count: number; columns: string[] }[];
+}
+
 const WELCOME: Message = {
   id: 'welcome',
   role: 'assistant',
   timestamp: new Date(),
   content:
-    "Hi! I'm your audit assistant. I've connected to your QuickBooks, Shopify, Amazon, ShipBob, and Gusto accounts. " +
-    'I can check your revenue, inventory, and payroll for discrepancies. What would you like me to look at first?',
+    "Hi! I'm **AuditAI**, your financial audit agent. Upload your Excel spreadsheets " +
+    "(QuickBooks, Shopify/Amazon invoices, inventory, payroll) using the sidebar, and I'll " +
+    "cross-reference them to find discrepancies.\n\nOr use the **Quick Actions** to run with the built-in sample data.",
 };
-
-const CHAT_URL  = 'http://localhost:8000/api/chat';
-const AUDIT_URL = 'http://localhost:8000/api/audit';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -34,8 +43,70 @@ function App() {
   const [isAuditLoading, setIsAuditLoading] = useState(false);
   const [isDemoRunning,  setIsDemoRunning]  = useState(false);
   const [isSidebarOpen,  setIsSidebarOpen]  = useState(false);
+  const [uploadedFiles,  setUploadedFiles]  = useState<UploadedFile[]>([]);
+  const [isUploading,    setIsUploading]    = useState(false);
 
-  // ── Internal: makes the API call, appends result/error to state ──────────
+  // Fetch existing uploaded files on mount
+  useEffect(() => {
+    fetch(FILES_URL)
+      .then((r) => r.json())
+      .then((data) => setUploadedFiles(data.files ?? []))
+      .catch(() => {});
+  }, []);
+
+  // ── File upload ─────────────────────────────────────────────────────────
+  const handleFileUpload = useCallback(async (files: FileList) => {
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(UPLOAD_URL, { method: 'POST', body: form });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+          throw new Error(err.detail);
+        }
+        const data = await res.json();
+        setUploadedFiles(data.files ?? []);
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-${Date.now()}`,
+          role: 'assistant',
+          timestamp: new Date(),
+          content:
+            `**${files.length} file(s) uploaded successfully.** I can now analyze your data. ` +
+            'Try "Run Full Audit" or ask me anything about your financials.',
+        },
+      ]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          timestamp: new Date(),
+          isError: true,
+          content: `**Upload error:** ${msg}`,
+        },
+      ]);
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  const handleFileDelete = useCallback(async (filename: string) => {
+    try {
+      await fetch(`${FILES_URL}/${filename}`, { method: 'DELETE' });
+      setUploadedFiles((prev) => prev.filter((f) => f.filename !== filename));
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
+  // ── Chat API call ─────────────────────────────────────────────────────
   const callChatAPI = useCallback(async (text: string): Promise<void> => {
     setIsLoading(true);
     try {
@@ -85,7 +156,6 @@ function App() {
     }
   }, []);
 
-  // ── Public: adds a user message then calls the API ───────────────────────
   const sendMessage = useCallback(
     async (text: string): Promise<void> => {
       setMessages((prev) => [
@@ -97,7 +167,6 @@ function App() {
     [callChatAPI],
   );
 
-  // ── Retry: removes the error bubble then re-calls the API ────────────────
   const retryMessage = useCallback(
     async (errorId: string, text: string): Promise<void> => {
       setMessages((prev) => prev.filter((m) => m.id !== errorId));
@@ -106,7 +175,7 @@ function App() {
     [callChatAPI],
   );
 
-  // ── Fetch raw findings for the summary panel ─────────────────────────────
+  // ── Audit findings panel ──────────────────────────────────────────────
   const fetchAuditFindings = useCallback(async (): Promise<void> => {
     setIsAuditLoading(true);
     setIsPanelOpen(true);
@@ -126,17 +195,16 @@ function App() {
     }
   }, []);
 
-  // ── Sidebar audit button: parallel chat message + panel fetch ────────────
   const handleAuditAction = useCallback(
     (chatMessage: string) => {
       sendMessage(chatMessage);
       fetchAuditFindings();
-      setIsSidebarOpen(false); // close sidebar on mobile after action
+      setIsSidebarOpen(false);
     },
     [sendMessage, fetchAuditFindings],
   );
 
-  // ── Demo walkthrough ─────────────────────────────────────────────────────
+  // ── Demo walkthrough ──────────────────────────────────────────────────
   const runDemo = useCallback(async () => {
     if (isDemoRunning || isLoading) return;
     setIsDemoRunning(true);
@@ -153,7 +221,7 @@ function App() {
     }
   }, [isDemoRunning, isLoading, sendMessage, fetchAuditFindings]);
 
-  // ── Approval flow ────────────────────────────────────────────────────────
+  // ── Approval flow ─────────────────────────────────────────────────────
   const handleApprove = useCallback(
     (messageId: string) => {
       setMessages((prev) =>
@@ -180,7 +248,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* Mobile hamburger — hidden on desktop via CSS */}
       <button
         className="sidebar-toggle"
         onClick={() => setIsSidebarOpen(true)}
@@ -191,7 +258,6 @@ function App() {
         <span className="sidebar-toggle__bar" />
       </button>
 
-      {/* Tap-outside overlay — mobile only */}
       <div
         className={`sidebar-overlay ${isSidebarOpen ? 'sidebar-overlay--visible' : ''}`}
         onClick={() => setIsSidebarOpen(false)}
@@ -202,9 +268,13 @@ function App() {
         onAuditAction={handleAuditAction}
         onDemoRun={runDemo}
         onClose={() => setIsSidebarOpen(false)}
+        onFileUpload={handleFileUpload}
+        onFileDelete={handleFileDelete}
         isLoading={busy}
         isDemoRunning={isDemoRunning}
         isMobileOpen={isSidebarOpen}
+        uploadedFiles={uploadedFiles}
+        isUploading={isUploading}
       />
 
       <main className="app__main">

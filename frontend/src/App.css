@@ -174,6 +174,150 @@ body {
   border-color: #d1d5db;
 }
 
+/* ---- Upload zone ---- */
+.upload-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  padding: 16px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 8px;
+}
+
+.upload-zone:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.upload-zone--uploading {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  cursor: wait;
+}
+
+.upload-zone__text {
+  font-size: 12.5px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.upload-zone__link {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---- Uploaded files list ---- */
+.uploaded-files-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.uploaded-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.uploaded-file__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.uploaded-file__name {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #166534;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uploaded-file__meta {
+  display: block;
+  font-size: 10.5px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.uploaded-file__remove {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+
+.uploaded-file__remove:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ---- Data source badge ---- */
+.data-source-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.data-source-badge--excel {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.data-source-badge--demo {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.data-source-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.data-source-badge--excel .data-source-badge__dot {
+  background: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.data-source-badge--demo .data-source-badge__dot {
+  background: #9ca3af;
+  box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.2);
+}
+
 /* Footer */
 .sidebar-footer {
   margin-top: auto;
