@@ -1,0 +1,42 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+.env/
+.venv/
+env/
+
+
+# --- Virtual Environments ---
+venv/
+.env/
+.venv/
+
+# --- IDE / Editor ---
+# VS Code
+.vscode/
+
+# PyCharm / JetBrains
+.idea/
+
+# --- OS Files ---
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# --- Logs ---
+*.log
+
+# --- Environment / Secrets ---
+*.env
+.env.*

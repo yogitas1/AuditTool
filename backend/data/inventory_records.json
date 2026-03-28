@@ -1,0 +1,17 @@
+{
+    "warehouse": "ShipBob - LA",
+    "snapshot_date": "2026-03-31",
+    "items": [
+      {"sku": "VC-SERUM-30", "name": "Vitamin C Serum 30ml", "category": "A", "system_count": 342, "expected_count": 342, "unit_cost": 12.50},
+      {"sku": "HA-SERUM-50", "name": "Hyaluronic Acid Serum 50ml", "category": "A", "system_count": 198, "expected_count": 238, "unit_cost": 18.00},
+      {"sku": "RT-CREAM-30", "name": "Retinol Night Cream 30ml", "category": "A", "system_count": 156, "expected_count": 156, "unit_cost": 22.00},
+      {"sku": "SPF-50-60", "name": "SPF 50 Sunscreen 60ml", "category": "B", "system_count": 510, "expected_count": 510, "unit_cost": 8.50},
+      {"sku": "CL-FOAM-150", "name": "Cleansing Foam 150ml", "category": "B", "system_count": 445, "expected_count": 450, "unit_cost": 6.00},
+      {"sku": "EY-CREAM-15", "name": "Eye Cream 15ml", "category": "A", "system_count": 89, "expected_count": 89, "unit_cost": 28.00},
+      {"sku": "TN-WATER-200", "name": "Toning Water 200ml", "category": "C", "system_count": 620, "expected_count": 620, "unit_cost": 4.50},
+      {"sku": "LIP-BALM-10", "name": "Lip Balm SPF 10ml", "category": "C", "system_count": 1200, "expected_count": 1200, "unit_cost": 2.00}
+    ],
+    "purchase_orders": [
+      {"po_id": "PO-2847", "supplier": "GlowBase Ingredients", "sku": "HA-SERUM-50", "ordered_qty": 500, "received_qty": 460, "invoice_amount": 9000.00, "date_ordered": "2026-03-10", "date_received": "2026-03-18"}
+    ]
+  }

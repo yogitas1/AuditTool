@@ -1,0 +1,7 @@
+{
+    "orders": [
+      {"order_id": "AMZ-9901", "txn_ref": "TXN-003", "date": "2026-03-12", "customer": "GlowMart", "amount": 8750.00, "status": "completed"},
+      {"order_id": "AMZ-9902", "txn_ref": "TXN-006", "date": "2026-03-22", "customer": "WellnessHub", "amount": 5600.00, "status": "completed"},
+      {"order_id": "AMZ-9903", "txn_ref": "TXN-009", "date": "2026-03-31", "customer": "GlowMart", "amount": 3400.00, "date_booked": "2026-04-01", "status": "completed"}
+    ]
+  }

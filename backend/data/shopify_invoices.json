@@ -1,0 +1,10 @@
+{
+    "invoices": [
+      {"order_id": "SH-4501", "txn_ref": "TXN-001", "date": "2026-03-05", "customer": "BeautyBox Co", "amount": 4500.00, "status": "paid"},
+      {"order_id": "SH-4502", "txn_ref": "TXN-002", "date": "2026-03-08", "customer": "Sarah Mitchell", "amount": 2140.00, "discount_applied": 200.00, "status": "paid"},
+      {"order_id": "SH-4505", "txn_ref": "TXN-005", "date": "2026-03-18", "customer": "Lisa Chen", "amount": 890.00, "status": "paid"},
+      {"order_id": "SH-4507", "txn_ref": "TXN-007", "date": "2026-03-25", "customer": "BeautyBox Co", "amount": 4500.00, "status": "paid"},
+      {"order_id": "SH-4508", "txn_ref": "TXN-008", "date": "2026-03-29", "customer": "NaturalGlow Store", "amount": 6100.00, "status": "paid"},
+      {"order_id": "SH-4510", "txn_ref": "TXN-010", "date": "2026-03-31", "customer": "Sarah Mitchell", "amount": 1200.00, "status": "paid"}
+    ]
+  }

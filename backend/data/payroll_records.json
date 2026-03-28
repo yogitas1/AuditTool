@@ -1,0 +1,13 @@
+{
+    "pay_period": "March 2026",
+    "employees": [
+      {"id": "EMP-001", "name": "Priya Sharma", "type": "W2", "title": "Finance Manager", "status": "active", "gross_pay": 8500.00, "federal_tax": 1700.00, "state_tax": 722.50, "start_date": "2023-06-15"},
+      {"id": "EMP-002", "name": "Jake Moreno", "type": "contractor", "title": "Marketing Consultant", "status": "terminated", "termination_date": "2026-02-15", "gross_pay": 3200.00, "federal_tax": 0, "state_tax": 0, "start_date": "2025-01-10"},
+      {"id": "EMP-003", "name": "Sara Kim", "type": "contractor", "title": "Content Designer", "status": "active", "gross_pay": 6800.00, "hours_per_week": 40, "uses_company_equipment": true, "engagement_start": "2025-01-15", "federal_tax": 0, "state_tax": 0, "start_date": "2025-01-15"},
+      {"id": "EMP-004", "name": "Marcus Johnson", "type": "W2", "title": "Warehouse Lead", "status": "active", "gross_pay": 5200.00, "federal_tax": 780.00, "state_tax": 442.00, "start_date": "2024-03-01"},
+      {"id": "EMP-005", "name": "Aisha Patel", "type": "W2", "title": "Customer Service", "status": "active", "gross_pay": 4200.00, "federal_tax": 630.00, "state_tax": 294.00, "ca_sdi_rate": 0.009, "ca_sdi_correct_rate": 0.012, "start_date": "2024-08-20"},
+      {"id": "EMP-006", "name": "David Liu", "type": "W2", "title": "Product Developer", "status": "active", "gross_pay": 7500.00, "federal_tax": 1500.00, "state_tax": 637.50, "start_date": "2023-11-01"}
+    ],
+    "payroll_total": 35400.00,
+    "gl_payroll_entry": 32200.00
+  }

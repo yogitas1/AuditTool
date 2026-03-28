@@ -1,0 +1,1062 @@
+/* ============================================================
+   Reset & base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: #111827;
+  background: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   Root layout
+   ============================================================ */
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+}
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  /* Mobile: off-screen until opened */
+  transition: transform 0.25s ease-in-out;
+}
+
+/* Brand */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.brand-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Sections */
+.sidebar-section {
+  padding: 20px 20px 0;
+}
+
+.sidebar-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Systems list */
+.systems-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.system-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: #374151;
+  padding: 5px 0;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  flex-shrink: 0;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.btn {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+  line-height: 1.3;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+}
+
+.btn-primary:not(:disabled):hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-secondary:not(:disabled):hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #9ca3af;
+  border-top: 1px solid #f3f4f6;
+}
+
+.footer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Findings Summary Panel  (fp = findings panel)
+   ============================================================ */
+
+/* Outer shell — sits between sidebar edge and first message */
+.fp {
+  flex-shrink: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  /* Amber left accent when there are findings */
+  border-left: 3px solid #f59e0b;
+}
+
+/* ---- Header bar (always rendered) ---- */
+.fp__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 42px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  gap: 12px;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.fp__header:hover {
+  background: #fffbeb;
+}
+
+.fp__header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.fp__header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.fp__total {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.fp__loading {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.fp__divider {
+  width: 1px;
+  height: 14px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+.fp__sev-count {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.fp__sev-count--high   { color: #dc2626; }
+.fp__sev-count--medium { color: #d97706; }
+.fp__sev-count--low    { color: #6b7280; }
+
+.fp__impact {
+  font-size: 12px;
+  font-weight: 600;
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+.fp__chevron {
+  font-size: 9px;
+  color: #9ca3af;
+  transition: transform 0.2s;
+}
+
+/* ---- Collapsible body ---- */
+.fp__body {
+  overflow: hidden;
+  max-height: 0;
+  /* Smooth open/close */
+  transition: max-height 0.28s ease-out;
+  border-top: 1px solid transparent;
+  overflow-y: auto;
+}
+
+.fp--open .fp__body {
+  max-height: 360px;
+  border-top-color: #f3f4f6;
+  transition: max-height 0.32s ease-in;
+}
+
+/* ---- Section group ---- */
+.fp__section {
+  padding: 10px 20px 6px;
+}
+
+.fp__section + .fp__section {
+  border-top: 1px solid #f3f4f6;
+}
+
+.fp__section-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.fp__section-icon {
+  font-size: 11px;
+  color: #9ca3af;
+  width: 14px;
+  text-align: center;
+}
+
+.fp__section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.fp__section-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ---- Individual finding row ---- */
+.fp__finding {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+  margin-bottom: 2px;
+}
+
+.fp__finding:hover {
+  background: #f9fafb;
+}
+
+.fp__finding-desc {
+  flex: 1;
+  font-size: 12.5px;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.fp__finding-arrow {
+  font-size: 14px;
+  color: #d1d5db;
+  flex-shrink: 0;
+  transition: color 0.12s;
+}
+
+.fp__finding:hover .fp__finding-arrow {
+  color: #9ca3af;
+}
+
+/* ---- Severity badge (in panel rows) ---- */
+.sev-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.sev-badge--high   { background: #fee2e2; color: #b91c1c; }
+.sev-badge--medium { background: #fef3c7; color: #92400e; }
+.sev-badge--low    { background: #f3f4f6; color: #6b7280; }
+
+/* ---- Dollar impact chip ---- */
+.impact-chip {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* Panel scrollbar */
+.fp__body::-webkit-scrollbar { width: 4px; }
+.fp__body::-webkit-scrollbar-track { background: transparent; }
+.fp__body::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+
+/* ============================================================
+   Chat window
+   ============================================================ */
+.chat-window {
+  flex: 1;
+  overflow-y: auto;
+  background: #f9fafb;
+  scroll-behavior: smooth;
+}
+
+.chat-window__inner {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 32px 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ============================================================
+   Message rows
+   ============================================================ */
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.msg-row--user {
+  flex-direction: row-reverse;
+}
+
+.msg-row--assistant {
+  flex-direction: row;
+}
+
+/* Avatar */
+.msg-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+/* Message body — wraps bubble + optional ApprovalCard */
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 72%;
+}
+
+/* Bubbles */
+.bubble {
+  padding: 12px 16px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.bubble--user {
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 18px 18px 4px 18px;
+  font-size: 14px;
+}
+
+.bubble--assistant {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px 18px 18px 4px;
+  font-size: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ---- Markdown inside assistant bubbles ---- */
+.bubble--assistant p {
+  margin: 0 0 10px;
+}
+.bubble--assistant p:last-child {
+  margin-bottom: 0;
+}
+.bubble--assistant h1,
+.bubble--assistant h2,
+.bubble--assistant h3 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+}
+.bubble--assistant h1:first-child,
+.bubble--assistant h2:first-child,
+.bubble--assistant h3:first-child {
+  margin-top: 0;
+}
+.bubble--assistant ul,
+.bubble--assistant ol {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}
+.bubble--assistant li {
+  margin-bottom: 5px;
+  line-height: 1.5;
+}
+.bubble--assistant li:last-child {
+  margin-bottom: 0;
+}
+.bubble--assistant strong {
+  font-weight: 600;
+  color: #111827;
+}
+.bubble--assistant em {
+  color: #6b7280;
+}
+.bubble--assistant code {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12.5px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: #374151;
+}
+.bubble--assistant pre {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.bubble--assistant pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.bubble--assistant blockquote {
+  margin: 8px 0;
+  padding: 8px 14px;
+  border-left: 3px solid #e5e7eb;
+  color: #6b7280;
+}
+.bubble--assistant hr {
+  border: none;
+  border-top: 1px solid #f3f4f6;
+  margin: 12px 0;
+}
+
+/* ---- Typing indicator ---- */
+.bubble--typing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 18px;
+  min-width: 56px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d1d5db;
+  animation: dot-bounce 1.2s ease-in-out infinite;
+}
+
+.dot:nth-child(1) { animation-delay: 0s; }
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); background: #d1d5db; }
+  30%            { transform: translateY(-6px); background: #9ca3af; }
+}
+
+/* ============================================================
+   Input bar
+   ============================================================ */
+.input-bar {
+  flex-shrink: 0;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  padding: 14px 24px 12px;
+}
+
+.input-bar__inner {
+  max-width: 780px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 8px 8px 8px 14px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-bar__inner:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.input-bar__textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111827;
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  min-height: 22px;
+  max-height: 160px;
+  padding: 0;
+}
+
+.input-bar__textarea::placeholder {
+  color: #9ca3af;
+}
+
+.input-bar__textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-bar__send {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: #e5e7eb;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.input-bar__send--active {
+  background: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.input-bar__send--active:hover {
+  background: #1d4ed8;
+}
+
+.input-bar__hint {
+  max-width: 780px;
+  margin: 6px auto 0;
+  font-size: 11px;
+  color: #d1d5db;
+  text-align: center;
+}
+
+.input-bar__hint kbd {
+  font-family: inherit;
+  font-size: 10.5px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 3px;
+  padding: 0 4px;
+  color: #9ca3af;
+}
+
+/* ============================================================
+   Scrollbar polish (webkit)
+   ============================================================ */
+.chat-window::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+.chat-window::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-window::-webkit-scrollbar-thumb,
+.sidebar::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 10px;
+}
+.chat-window::-webkit-scrollbar-thumb:hover,
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+
+/* ============================================================
+   ApprovalCard
+   ============================================================ */
+
+/* Base card */
+.approval-card {
+  border-radius: 10px;
+  border: 1px solid #fde68a;
+  overflow: hidden;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+/* ---- Header banner ---- */
+.approval-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+}
+
+.approval-card__header-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.approval-card__header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+/* ---- Detail rows ---- */
+.approval-card__body {
+  padding: 14px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.approval-card__field-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+  margin-bottom: 3px;
+}
+
+.approval-card__field-value {
+  color: #111827;
+  line-height: 1.4;
+}
+
+.approval-card__amount {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.approval-card__amount--negative { color: #dc2626; }
+.approval-card__amount--positive { color: #16a34a; }
+
+/* ---- Footer buttons ---- */
+.approval-card__footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid #fef3c7;
+}
+
+.approval-card__btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  line-height: 1;
+}
+
+.approval-card__btn--approve {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.approval-card__btn--approve:hover {
+  background: #16a34a;
+}
+
+.approval-card__btn--reject {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.approval-card__btn--reject:hover {
+  background: #dc2626;
+}
+
+/* ---- Status variants (after decision) ---- */
+.approval-card--approved {
+  border-color: #86efac;
+}
+
+.approval-card--approved .approval-card__header {
+  background: #f0fdf4;
+  border-bottom-color: #86efac;
+}
+
+.approval-card--approved .approval-card__header-title {
+  color: #166534;
+}
+
+.approval-card--rejected {
+  border-color: #fca5a5;
+}
+
+.approval-card--rejected .approval-card__header {
+  background: #fef2f2;
+  border-bottom-color: #fca5a5;
+}
+
+.approval-card--rejected .approval-card__header-title {
+  color: #991b1b;
+}
+
+/* ============================================================
+   Timestamps
+   ============================================================ */
+.msg-timestamp {
+  display: block;
+  font-size: 10.5px;
+  color: #9ca3af;
+  margin-top: 3px;
+  /* Default: left-align for assistant */
+  text-align: left;
+  padding-left: 2px;
+}
+
+.msg-timestamp--user {
+  text-align: right;
+  padding-left: 0;
+  padding-right: 2px;
+}
+
+/* ============================================================
+   Error bubble + retry
+   ============================================================ */
+.bubble--error {
+  background: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+}
+
+.bubble--error p { color: #374151; }
+.bubble--error strong { color: #111827; }
+.bubble--error em { color: #9ca3af; }
+
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 6px 14px;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #dc2626;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.retry-btn:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+/* ============================================================
+   Demo button + hint
+   ============================================================ */
+.btn-demo {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid #1f2937;
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  line-height: 1.3;
+}
+
+.btn-demo:not(:disabled):hover {
+  background: #374151;
+  border-color: #374151;
+}
+
+.btn-demo:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.demo-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(249, 250, 251, 0.3);
+  border-top-color: #f9fafb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.demo-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   Sidebar close button (mobile × )
+   ============================================================ */
+.sidebar-close {
+  display: none; /* shown only on mobile via media query */
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* ============================================================
+   Mobile sidebar + hamburger
+   ============================================================ */
+
+/* Hamburger toggle — hidden on desktop */
+.sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+}
+
+.sidebar-toggle__bar {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: #374151;
+  border-radius: 2px;
+}
+
+/* Tap-outside overlay */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 99;
+}
+
+@media (max-width: 767px) {
+  /* Show hamburger */
+  .sidebar-toggle { display: flex; }
+
+  /* Show the × inside the sidebar */
+  .sidebar-close { display: flex; }
+
+  /* Sidebar slides in from the left */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .sidebar--mobile-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.14);
+  }
+
+  /* Show the overlay when sidebar is open */
+  .sidebar-overlay--visible {
+    display: block;
+  }
+
+  /* Shrink chat to full width (sidebar is now floating) */
+  .app__main {
+    width: 100%;
+  }
+
+  /* Nudge message inner padding for narrow screens */
+  .chat-window__inner {
+    padding: 60px 12px 12px; /* top padding clears the hamburger button */
+  }
+
+  /* Narrow screens: bubbles can be wider */
+  .msg-body {
+    max-width: 88%;
+  }
+
+  /* Input bar edges */
+  .input-bar {
+    padding: 10px 12px 10px;
+  }
+
+  .input-bar__hint { display: none; }
+}
