@@ -311,7 +311,7 @@ function App() {
           isOpen={isCorrOpen}
           onToggle={() => setIsCorrOpen((v) => !v)}
           onDownload={handleDownloadFile}
-          modifiedFiles={[...new Set(corrections.map((c) => c.file))]}
+          modifiedFiles={Array.from(new Set(corrections.map((c) => c.file)))}
         />
         <ChatWindow
           messages={messages}
