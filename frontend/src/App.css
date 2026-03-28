@@ -174,42 +174,70 @@ body {
   border-color: #d1d5db;
 }
 
-/* ---- Upload zone ---- */
-.upload-zone {
-  border: 2px dashed #d1d5db;
-  border-radius: 10px;
-  padding: 16px 12px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  margin-bottom: 8px;
+/* ---- Scan row ---- */
+.scan-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
-.upload-zone:hover {
+.scan-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: #111827;
+  background: #f9fafb;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.scan-input:focus {
   border-color: #2563eb;
-  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
-.upload-zone--uploading {
-  border-color: #93c5fd;
-  background: #eff6ff;
-  cursor: wait;
+.scan-input::placeholder {
+  color: #9ca3af;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.upload-zone__text {
-  font-size: 12.5px;
-  color: #6b7280;
+.scan-btn {
+  flex-shrink: 0;
+  width: auto !important;
+  padding: 7px 14px !important;
+  text-align: center !important;
+}
+
+/* ---- Upload fallback ---- */
+.upload-alt {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
+  margin-bottom: 10px;
 }
 
-.upload-zone__link {
+.upload-alt__text {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.upload-alt__btn {
+  font-size: 11px;
   color: #2563eb;
-  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
+  padding: 0;
+}
+
+.upload-alt__btn:hover {
+  color: #1d4ed8;
 }
 
 /* ---- Uploaded files list ---- */

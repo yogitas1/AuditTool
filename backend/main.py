@@ -2,14 +2,13 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from openai import OpenAIError
 from pydantic import BaseModel
 
 from services.audit_engine import run_inventory_audit, run_payroll_audit, run_revenue_audit
 from services import chat_service, audit_agent
 
-app = FastAPI(title="Audit Agent API", version="2.0.0")
+app = FastAPI(title="Audit Agent API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,11 +27,8 @@ class AuditRequest(BaseModel):
     audit_type: Literal["revenue", "inventory", "payroll", "all"]
 
 
-class AuditFinding(BaseModel):
-    type: str
-    severity: Literal["high", "medium", "low"]
-    explanation: str
-    model_config = {"extra": "allow"}
+class ScanRequest(BaseModel):
+    directory: str
 
 
 class AuditResponse(BaseModel):
@@ -94,12 +90,40 @@ def build_response(audit_type: str, findings: list[dict]) -> AuditResponse:
 
 
 # ---------------------------------------------------------------------------
-# File upload routes
+# Scan local directory (primary way to register files)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/scan")
+def scan_directory(request: ScanRequest):
+    """Scan a local directory for .xlsx files and register them."""
+    try:
+        files = audit_agent.scan_directory(request.directory)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    audit_agent.invalidate_cache()
+    return {
+        "status": "ok",
+        "directory": request.directory,
+        "files": files,
+    }
+
+
+@app.get("/api/files")
+def list_files():
+    """Return summaries of all registered Excel files."""
+    return {"files": audit_agent.get_registered_files()}
+
+
+# ---------------------------------------------------------------------------
+# Upload fallback (copies file to uploads/ then registers it)
 # ---------------------------------------------------------------------------
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Accept an Excel file upload and save it to the uploads directory."""
+    """Accept an Excel file upload as a fallback if scan isn't used."""
     if not file.filename or not file.filename.endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Only .xlsx files are supported.")
 
@@ -107,60 +131,28 @@ async def upload_file(file: UploadFile = File(...)):
     content = await file.read()
     dest.write_bytes(content)
 
+    audit_agent.register_upload(dest)
     audit_agent.invalidate_cache()
 
-    summary = audit_agent.get_uploaded_file_summaries()
     return {
         "status": "ok",
         "filename": file.filename,
-        "files": summary,
+        "files": audit_agent.get_registered_files(),
     }
 
 
-@app.get("/api/files")
-def list_files():
-    """Return summaries of all uploaded Excel files."""
-    return {"files": audit_agent.get_uploaded_file_summaries()}
-
-
-@app.delete("/api/files/{filename}")
-def delete_file(filename: str):
-    """Remove a single uploaded file."""
-    fp = audit_agent.UPLOAD_DIR / filename
-    if not fp.exists():
-        raise HTTPException(status_code=404, detail="File not found.")
-    fp.unlink()
-    audit_agent.invalidate_cache()
-    return {"status": "ok", "message": f"Deleted {filename}"}
-
-
-@app.get("/api/files/download/{filename}")
-def download_file(filename: str):
-    """Download an uploaded (potentially corrected) Excel file."""
-    fp = audit_agent.UPLOAD_DIR / filename
-    if not fp.exists():
-        raise HTTPException(status_code=404, detail="File not found.")
-    return FileResponse(
-        path=fp,
-        filename=filename,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-
 # ---------------------------------------------------------------------------
-# Corrections routes
+# Corrections
 # ---------------------------------------------------------------------------
 
 @app.get("/api/corrections")
 def get_corrections():
-    """Return the full corrections log for this session."""
     log = audit_agent.get_corrections()
     return {"total": len(log), "corrections": log}
 
 
 @app.post("/api/corrections/auto-fix")
 def auto_fix(request: AuditRequest):
-    """Run audit and auto-fix all correctable findings without human approval."""
     try:
         result = audit_agent._auto_fix_findings(request.audit_type)
     except Exception as exc:
@@ -169,7 +161,7 @@ def auto_fix(request: AuditRequest):
 
 
 # ---------------------------------------------------------------------------
-# Legacy routes (JSON-backed, unchanged)
+# Core routes
 # ---------------------------------------------------------------------------
 
 @app.get("/health")
@@ -179,16 +171,10 @@ def health_check():
 
 @app.post("/api/audit", response_model=AuditResponse)
 def run_audit(request: AuditRequest):
-    """
-    Run audits.  If Excel files have been uploaded the agent uses those;
-    otherwise falls back to the bundled JSON fixtures.
-    """
     audit_type = request.audit_type
 
     try:
-        has_uploads = bool(list(audit_agent.UPLOAD_DIR.glob("*.xlsx")))
-
-        if has_uploads:
+        if audit_agent.has_files():
             findings = audit_agent._run_audit(audit_type)
         else:
             if audit_type == "revenue":
@@ -211,21 +197,10 @@ def run_audit(request: AuditRequest):
     return build_response(audit_type, findings)
 
 
-# ---------------------------------------------------------------------------
-# Agent chat (replaces old chat when files are uploaded)
-# ---------------------------------------------------------------------------
-
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    """
-    Smart routing: if Excel files have been uploaded, use the agentic pipeline
-    (function-calling with tools). Otherwise fall back to the original
-    prompt-stuffing approach.
-    """
-    has_uploads = bool(list(audit_agent.UPLOAD_DIR.glob("*.xlsx")))
-
     try:
-        if has_uploads:
+        if audit_agent.has_files():
             result = audit_agent.chat(request.message, request.context or None)
         else:
             result = chat_service.chat(request.message, request.context)
@@ -248,8 +223,7 @@ def chat(request: ChatRequest):
 
 @app.get("/api/chat/history", response_model=HistoryResponse)
 def get_chat_history():
-    has_uploads = bool(list(audit_agent.UPLOAD_DIR.glob("*.xlsx")))
-    if has_uploads:
+    if audit_agent.has_files():
         history = audit_agent.get_history()
     else:
         history = chat_service.get_history()

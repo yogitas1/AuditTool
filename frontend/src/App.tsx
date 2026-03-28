@@ -12,10 +12,12 @@ const CHAT_URL  = `${API_BASE}/api/chat`;
 const AUDIT_URL = `${API_BASE}/api/audit`;
 const UPLOAD_URL = `${API_BASE}/api/upload`;
 const FILES_URL = `${API_BASE}/api/files`;
+const SCAN_URL = `${API_BASE}/api/scan`;
 const CORRECTIONS_URL = `${API_BASE}/api/corrections`;
 
-interface UploadedFile {
+interface RegisteredFile {
   filename: string;
+  path?: string;
   sheets: { name: string; row_count: number; columns: string[] }[];
 }
 
@@ -24,9 +26,9 @@ const WELCOME: Message = {
   role: 'assistant',
   timestamp: new Date(),
   content:
-    "Hi! I'm **AuditAI**, your financial audit agent. Upload your Excel spreadsheets " +
-    "(QuickBooks, Shopify/Amazon invoices, inventory, payroll) using the sidebar, and I'll " +
-    "cross-reference them to find discrepancies.\n\nOr use the **Quick Actions** to run with the built-in sample data.",
+    "Hi! I'm **AuditAI**, your financial audit agent. Paste a folder path in the sidebar " +
+    "to scan for Excel files, and I'll cross-reference them to find and **fix** discrepancies " +
+    "directly in your files.\n\nOr use the **Quick Actions** to run with the built-in sample data.",
 };
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -38,29 +40,74 @@ const DEMO_STEPS = [
 ];
 
 function App() {
-  const [messages,       setMessages]       = useState<Message[]>([WELCOME]);
-  const [isLoading,      setIsLoading]      = useState(false);
-  const [auditFindings,  setAuditFindings]  = useState<AuditFinding[]>([]);
-  const [isPanelOpen,    setIsPanelOpen]    = useState(false);
-  const [isAuditLoading, setIsAuditLoading] = useState(false);
-  const [isDemoRunning,  setIsDemoRunning]  = useState(false);
-  const [isSidebarOpen,  setIsSidebarOpen]  = useState(false);
-  const [uploadedFiles,  setUploadedFiles]  = useState<UploadedFile[]>([]);
-  const [isUploading,    setIsUploading]    = useState(false);
-  const [corrections,    setCorrections]    = useState<Correction[]>([]);
-  const [isCorrOpen,     setIsCorrOpen]     = useState(false);
+  const [messages,        setMessages]        = useState<Message[]>([WELCOME]);
+  const [isLoading,       setIsLoading]       = useState(false);
+  const [auditFindings,   setAuditFindings]   = useState<AuditFinding[]>([]);
+  const [isPanelOpen,     setIsPanelOpen]     = useState(false);
+  const [isAuditLoading,  setIsAuditLoading]  = useState(false);
+  const [isDemoRunning,   setIsDemoRunning]   = useState(false);
+  const [isSidebarOpen,   setIsSidebarOpen]   = useState(false);
+  const [registeredFiles, setRegisteredFiles] = useState<RegisteredFile[]>([]);
+  const [isScanning,      setIsScanning]      = useState(false);
+  const [scannedDir,      setScannedDir]      = useState('');
+  const [corrections,     setCorrections]     = useState<Correction[]>([]);
+  const [isCorrOpen,      setIsCorrOpen]      = useState(false);
 
-  // Fetch existing uploaded files on mount
   useEffect(() => {
     fetch(FILES_URL)
       .then((r) => r.json())
-      .then((data) => setUploadedFiles(data.files ?? []))
+      .then((data) => setRegisteredFiles(data.files ?? []))
       .catch(() => {});
   }, []);
 
-  // ── File upload ─────────────────────────────────────────────────────────
+  // ── Scan directory ────────────────────────────────────────────────────
+  const handleScanDirectory = useCallback(async (dir: string) => {
+    setIsScanning(true);
+    try {
+      const res = await fetch(SCAN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ directory: dir }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Scan failed' }));
+        throw new Error(err.detail);
+      }
+      const data = await res.json();
+      setRegisteredFiles(data.files ?? []);
+      setScannedDir(dir);
+      const count = (data.files ?? []).length;
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-${Date.now()}`,
+          role: 'assistant',
+          timestamp: new Date(),
+          content: count > 0
+            ? `**Found ${count} Excel file(s) in \`${dir}\`.** These files will be read and edited in place. Try "Run Full Audit + Auto-Fix" to get started.`
+            : `**No .xlsx files found in \`${dir}\`.** Check the path and try again.`,
+        },
+      ]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Scan failed';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: 'assistant',
+          timestamp: new Date(),
+          isError: true,
+          content: `**Scan error:** ${msg}`,
+        },
+      ]);
+    } finally {
+      setIsScanning(false);
+    }
+  }, []);
+
+  // ── File upload (fallback) ────────────────────────────────────────────
   const handleFileUpload = useCallback(async (files: FileList) => {
-    setIsUploading(true);
+    setIsScanning(true);
     try {
       for (const file of Array.from(files)) {
         const form = new FormData();
@@ -71,7 +118,7 @@ function App() {
           throw new Error(err.detail);
         }
         const data = await res.json();
-        setUploadedFiles(data.files ?? []);
+        setRegisteredFiles(data.files ?? []);
       }
       setMessages((prev) => [
         ...prev,
@@ -79,9 +126,7 @@ function App() {
           id: `sys-${Date.now()}`,
           role: 'assistant',
           timestamp: new Date(),
-          content:
-            `**${files.length} file(s) uploaded successfully.** I can now analyze your data. ` +
-            'Try "Run Full Audit" or ask me anything about your financials.',
+          content: `**${files.length} file(s) uploaded.** Try "Run Full Audit + Auto-Fix" to get started.`,
         },
       ]);
     } catch (err) {
@@ -97,20 +142,11 @@ function App() {
         },
       ]);
     } finally {
-      setIsUploading(false);
+      setIsScanning(false);
     }
   }, []);
 
-  const handleFileDelete = useCallback(async (filename: string) => {
-    try {
-      await fetch(`${FILES_URL}/${filename}`, { method: 'DELETE' });
-      setUploadedFiles((prev) => prev.filter((f) => f.filename !== filename));
-    } catch {
-      /* non-fatal */
-    }
-  }, []);
-
-  // ── Corrections polling ──────────────────────────────────────────────
+  // ── Corrections polling ───────────────────────────────────────────────
   const fetchCorrections = useCallback(async () => {
     try {
       const res = await fetch(CORRECTIONS_URL);
@@ -206,7 +242,7 @@ function App() {
       const data = await res.json();
       setAuditFindings(data.findings ?? []);
     } catch {
-      /* panel fetch failures are non-fatal */
+      /* non-fatal */
     } finally {
       setIsAuditLoading(false);
     }
@@ -285,13 +321,14 @@ function App() {
         onAuditAction={handleAuditAction}
         onDemoRun={runDemo}
         onClose={() => setIsSidebarOpen(false)}
+        onScanDirectory={handleScanDirectory}
         onFileUpload={handleFileUpload}
-        onFileDelete={handleFileDelete}
         isLoading={busy}
         isDemoRunning={isDemoRunning}
         isMobileOpen={isSidebarOpen}
-        uploadedFiles={uploadedFiles}
-        isUploading={isUploading}
+        registeredFiles={registeredFiles}
+        isScanning={isScanning}
+        scannedDir={scannedDir}
       />
 
       <main className="app__main">

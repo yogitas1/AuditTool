@@ -1,17 +1,9 @@
 """
 OpenAI function-calling audit agent.
 
-The agent has tools to:
-  1. list uploaded files
-  2. inspect / summarize a workbook
-  3. parse & load Excel data into the audit engine
-  4. run any combination of audits (revenue / inventory / payroll)
-  5. apply corrections directly to Excel cells (in place)
-  6. auto-fix all findings from a given audit (in place)
-  7. view the corrections log
-
-All state (uploaded file paths, parsed data cache, conversation history)
-is held at module level — fine for a single-user dev tool.
+The agent works with Excel files at their original locations on the
+filesystem.  Files can be registered by scanning a local directory
+or by uploading through the web UI.  All edits are made in place.
 """
 
 from __future__ import annotations
@@ -50,14 +42,55 @@ TEMPERATURE = 0.2
 UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+# ── file registry ────────────────────────────────────────────────────────
+# Maps filename -> absolute Path.  Populated by scan_directory() or
+# register_upload().  The agent resolves filenames through this registry
+# so it can work with files anywhere on the filesystem.
+
+_file_registry: dict[str, Path] = {}
+
+
+def scan_directory(directory: str) -> list[dict]:
+    """Find all .xlsx files in a directory and register them."""
+    d = Path(directory).expanduser().resolve()
+    if not d.is_dir():
+        raise FileNotFoundError(f"Not a directory: {d}")
+
+    found: list[dict] = []
+    for fp in sorted(d.glob("*.xlsx")):
+        _file_registry[fp.name] = fp
+        found.append(summarize_workbook(fp))
+    return found
+
+
+def register_upload(filepath: Path) -> None:
+    """Register a file that was uploaded via the web UI."""
+    _file_registry[filepath.name] = filepath.resolve()
+
+
+def get_registered_files() -> list[dict]:
+    """Return summaries of all registered files."""
+    result = []
+    for name, fp in sorted(_file_registry.items()):
+        if fp.exists():
+            s = summarize_workbook(fp)
+            s["path"] = str(fp)
+            result.append(s)
+    return result
+
+
+def has_files() -> bool:
+    return bool(_file_registry)
+
+
 # ── tool definitions (OpenAI function-calling schema) ────────────────────
 
 TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
-            "name": "list_uploaded_files",
-            "description": "List all Excel files that have been uploaded for auditing.",
+            "name": "list_files",
+            "description": "List all Excel files currently registered for auditing, with their sheet names and row counts.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -66,15 +99,15 @@ TOOLS: list[dict] = [
         "function": {
             "name": "inspect_file",
             "description": (
-                "Inspect an uploaded Excel file — returns sheet names, "
-                "column headers, and row counts so you can decide how to use it."
+                "Inspect a registered Excel file — returns sheet names, "
+                "column headers, and row counts."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "Name of the uploaded file (e.g. 'payroll_report_march2026.xlsx')",
+                        "description": "Name of the file (e.g. 'payroll_report_march2026.xlsx')",
                     }
                 },
                 "required": ["filename"],
@@ -86,9 +119,8 @@ TOOLS: list[dict] = [
         "function": {
             "name": "load_and_audit",
             "description": (
-                "Parse one or more uploaded Excel files and run the appropriate "
-                "audit checks (revenue, inventory, payroll, or all). "
-                "Returns the full list of audit findings."
+                "Parse the registered Excel files and run audit checks "
+                "(revenue, inventory, payroll, or all). Returns findings."
             ),
             "parameters": {
                 "type": "object",
@@ -108,16 +140,15 @@ TOOLS: list[dict] = [
         "function": {
             "name": "read_excel_data",
             "description": (
-                "Read raw row data from a specific sheet inside an uploaded "
-                "Excel file. Useful for answering detailed questions about "
-                "specific transactions, employees, or inventory items."
+                "Read raw row data from a specific sheet inside a registered "
+                "Excel file. Useful for answering detailed questions."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "Name of the uploaded file.",
+                        "description": "Name of the file.",
                     },
                     "sheet_name": {
                         "type": "string",
@@ -133,41 +164,39 @@ TOOLS: list[dict] = [
         "function": {
             "name": "apply_correction",
             "description": (
-                "Edit a single cell in an uploaded Excel file to fix a discrepancy. "
-                "Identifies the row by a key column (e.g. Transaction ID = 'TXN-002') "
-                "and sets a new value in the target column. The change is saved "
-                "to the file immediately and logged."
+                "Edit a single cell in a registered Excel file to fix a discrepancy. "
+                "The change is saved to the original file immediately and logged."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "filename": {
                         "type": "string",
-                        "description": "Name of the uploaded Excel file to edit.",
+                        "description": "Name of the Excel file to edit.",
                     },
                     "sheet_name": {
                         "type": "string",
-                        "description": "Sheet name to edit within the workbook.",
+                        "description": "Sheet name to edit.",
                     },
                     "row_identifier_column": {
                         "type": "string",
-                        "description": "Column used to locate the row (e.g. 'Transaction ID', 'Employee ID', 'SKU').",
+                        "description": "Column used to locate the row (e.g. 'Transaction ID').",
                     },
                     "row_identifier_value": {
                         "type": "string",
-                        "description": "Value to match in the identifier column (e.g. 'TXN-002', 'EMP-005').",
+                        "description": "Value to match in the identifier column (e.g. 'TXN-002').",
                     },
                     "target_column": {
                         "type": "string",
-                        "description": "Column whose value should be changed (e.g. 'Amount', 'SDI Rate Applied').",
+                        "description": "Column whose value should be changed.",
                     },
                     "new_value": {
                         "type": "string",
-                        "description": "The corrected value to write into the cell.",
+                        "description": "The corrected value to write.",
                     },
                     "reason": {
                         "type": "string",
-                        "description": "Brief explanation of why this correction is being made.",
+                        "description": "Why this correction is being made.",
                     },
                 },
                 "required": [
@@ -183,9 +212,8 @@ TOOLS: list[dict] = [
             "name": "auto_fix_all",
             "description": (
                 "Run the specified audit, then automatically apply corrections "
-                "for every fixable finding directly in the uploaded Excel files. "
-                "Returns a summary of all corrections made. Use this when the "
-                "user wants all discrepancies fixed without manual intervention."
+                "for every fixable finding directly in the original Excel files. "
+                "Returns a summary of all corrections made."
             ),
             "parameters": {
                 "type": "object",
@@ -219,47 +247,42 @@ _parsed_cache: dict[str, dict] = {}
 SYSTEM_PROMPT = """\
 You are **AuditAI**, an autonomous financial audit agent for small and mid-size businesses.
 
-You have tools to read, analyze, and **directly fix** Excel workbooks that the
-user has uploaded.  You operate **without requiring human approval** — you find
-discrepancies, edit the files **in place**, and report what you changed.
+You have tools to read, analyze, and **directly fix** Excel files on the user's
+local filesystem.  You operate **without requiring human approval** — you find
+discrepancies, edit the original files **in place**, and report what you changed.
 
-IMPORTANT: You edit the original uploaded files directly. You do NOT create
-copies or new files. The user's files are modified in place.
+IMPORTANT: You edit the user's original files directly at their real locations
+on disk. You do NOT create copies or new files.
 
 ## Your workflow
 
-1. **Inspect** uploaded files to understand their structure.
-2. **Run audits** — the engine cross-references revenue with invoices, inventory
+1. **List files** to see what spreadsheets are available.
+2. **Inspect** files to understand their structure (sheets, columns, row counts).
+3. **Run audits** — the engine cross-references revenue with invoices, inventory
    with purchase orders, and payroll with GL entries.
-3. **Auto-fix** every correctable discrepancy directly in the Excel files using
-   `apply_correction` (for individual fixes) or `auto_fix_all` (bulk).
-   All edits are saved in place to the original files.
-4. **Report** a clear summary of all changes made, grouped by audit area.
-5. **Answer follow-ups** using the raw data or the corrections log.
+4. **Auto-fix** every correctable discrepancy directly in the original files using
+   `apply_correction` (individual) or `auto_fix_all` (bulk).
+5. **Report** a clear summary of all changes, grouped by audit area.
+6. **Answer follow-ups** using the raw data or the corrections log.
 
 ## What you can fix autonomously
 
-- **Revenue:** Amount mismatches (update QB amount to match source invoice),
-  apply authorized discounts, flag wrong-period bookings (correct the date_booked).
-- **Inventory:** Update system counts to match expected counts, flag PO
-  shortages and adjust invoice amounts for undelivered units.
-- **Payroll:** Stop payments for terminated employees (set gross_pay to 0),
-  correct SDI withholding rates, reconcile GL entries to match payroll totals.
+- **Revenue:** Amount mismatches, authorized discounts, wrong-period bookings.
+- **Inventory:** System count discrepancies, PO receipt mismatches.
+- **Payroll:** Terminated employee payments, incorrect SDI rates, GL reconciliation.
 
-## What you should still flag (but not auto-fix)
+## What you should flag but NOT auto-fix
 
-- Unmatched transactions with no source document (need investigation).
+- Unmatched transactions with no source document.
 - Contractor misclassification (legal/HR decision).
 - Discrepancies you aren't confident about.
-
-For these, explain the issue and recommend next steps.
 
 ## Output format
 
 - Use markdown. Be concise but thorough.
-- Reference specific IDs (TXN-002, EMP-005, SKU HA-SERUM-50, PO-2847, etc.).
-- After fixing, always show a **Corrections Summary** table.
-- Remind the user that the original files have been updated in place.
+- Reference specific IDs (TXN-002, EMP-005, SKU HA-SERUM-50, etc.).
+- After fixing, show a **Corrections Summary** table.
+- Remind the user that the original files on their laptop have been updated.
 """
 
 # ── internal helpers ─────────────────────────────────────────────────────
@@ -274,23 +297,27 @@ def _get_client() -> OpenAI:
     return _client
 
 
-def _uploaded_files() -> list[Path]:
-    return sorted(UPLOAD_DIR.glob("*.xlsx"))
+def _all_files() -> list[Path]:
+    """Return all registered file paths that still exist."""
+    return [fp for fp in _file_registry.values() if fp.exists()]
 
 
 def _resolve(filename: str) -> Path:
-    p = UPLOAD_DIR / filename
-    if not p.exists():
-        raise FileNotFoundError(f"File not found: {filename}")
-    return p
+    """Look up a filename in the registry. Returns the absolute path."""
+    fp = _file_registry.get(filename)
+    if fp and fp.exists():
+        return fp
+    raise FileNotFoundError(
+        f"File not found: {filename}. "
+        f"Registered files: {list(_file_registry.keys())}"
+    )
 
 
 def _load_all_excel_data() -> dict[str, dict]:
-    """Classify and parse every uploaded file; cache results."""
     if _parsed_cache:
         return _parsed_cache
 
-    for fp in _uploaded_files():
+    for fp in _all_files():
         cat = classify_workbook(fp)
         if cat == "quickbooks":
             _parsed_cache["quickbooks"] = parse_quickbooks(fp)
@@ -330,7 +357,7 @@ def _run_audit(audit_type: str) -> list[dict]:
 # ── auto-fix logic ───────────────────────────────────────────────────────
 
 def _find_file_for_category(category: str) -> Path | None:
-    for fp in _uploaded_files():
+    for fp in _all_files():
         cat = classify_workbook(fp)
         if cat == category:
             return fp
@@ -338,7 +365,6 @@ def _find_file_for_category(category: str) -> Path | None:
 
 
 def _auto_fix_findings(audit_type: str) -> dict[str, Any]:
-    """Run audit, then apply corrections for every fixable finding."""
     invalidate_cache()
     findings = _run_audit(audit_type)
     applied: list[dict] = []
@@ -368,7 +394,6 @@ def _auto_fix_findings(audit_type: str) -> dict[str, Any]:
 
 
 def _try_fix_finding(f: dict) -> dict | None:
-    """Attempt to auto-fix a single finding. Returns correction record or None."""
     ftype = f.get("type", "")
     audit = f.get("_audit", "")
 
@@ -412,7 +437,7 @@ def _try_fix_finding(f: dict) -> dict | None:
         )
         return result.get("correction") if result.get("status") == "ok" else None
 
-    if ftype == "count_shortage" and audit == "inventory":
+    if ftype in ("count_shortage", "count_overage") and audit == "inventory":
         inv_file = _find_file_for_category("inventory")
         if not inv_file:
             return None
@@ -423,22 +448,7 @@ def _try_fix_finding(f: dict) -> dict | None:
             row_identifier_value=f["sku"],
             target_column="System Count",
             new_value=str(f["expected_count"]),
-            reason=f"Updated system count to match expected count after physical recount. {f.get('explanation', '')}",
-        )
-        return result.get("correction") if result.get("status") == "ok" else None
-
-    if ftype == "count_overage" and audit == "inventory":
-        inv_file = _find_file_for_category("inventory")
-        if not inv_file:
-            return None
-        result = edit_cell(
-            filepath=inv_file,
-            sheet_name="Inventory Snapshot",
-            row_identifier_column="SKU",
-            row_identifier_value=f["sku"],
-            target_column="System Count",
-            new_value=str(f["expected_count"]),
-            reason=f"Corrected overage — aligned system count with expected. {f.get('explanation', '')}",
+            reason=f"Aligned system count with expected. {f.get('explanation', '')}",
         )
         return result.get("correction") if result.get("status") == "ok" else None
 
@@ -486,7 +496,7 @@ def _try_fix_finding(f: dict) -> dict | None:
             row_identifier_value="Payroll Run Total",
             target_column="Amount",
             new_value=str(corrected_total),
-            reason=f"Aligned payroll total with GL entry after removing terminated employee pay. {f.get('explanation', '')}",
+            reason=f"Aligned payroll total with GL entry. {f.get('explanation', '')}",
         )
         return result.get("correction") if result.get("status") == "ok" else None
 
@@ -496,17 +506,22 @@ def _try_fix_finding(f: dict) -> dict | None:
 # ── tool dispatch ────────────────────────────────────────────────────────
 
 def _handle_tool_call(name: str, args: dict) -> str:
-    """Execute a tool and return the JSON-serialised result."""
-    if name == "list_uploaded_files":
-        files = _uploaded_files()
+    if name == "list_files":
+        files = _all_files()
         if not files:
-            return json.dumps({"files": [], "message": "No files uploaded yet."})
-        summaries = [summarize_workbook(f) for f in files]
+            return json.dumps({"files": [], "message": "No files registered. Ask the user to scan a folder."})
+        summaries = []
+        for fp in files:
+            s = summarize_workbook(fp)
+            s["path"] = str(fp)
+            summaries.append(s)
         return json.dumps({"files": summaries})
 
     if name == "inspect_file":
         fp = _resolve(args["filename"])
-        return json.dumps(summarize_workbook(fp))
+        s = summarize_workbook(fp)
+        s["path"] = str(fp)
+        return json.dumps(s)
 
     if name == "load_and_audit":
         invalidate_cache()
@@ -559,7 +574,7 @@ def _handle_tool_call(name: str, args: dict) -> str:
     return json.dumps({"error": f"Unknown tool: {name}"})
 
 
-# ── approval parsing (kept for backward compat, though agent is autonomous now)
+# ── approval parsing ─────────────────────────────────────────────────────
 
 _RE_ACTION   = re.compile(r'^APPROVAL_REQUIRED:\s*(.+)$',   re.MULTILINE)
 _RE_ACCOUNTS = re.compile(r'^ACCOUNTS_AFFECTED:\s*(.+)$',   re.MULTILINE)
@@ -588,15 +603,14 @@ def _parse_approval(text: str) -> tuple[str, dict | None]:
 # ── public API ───────────────────────────────────────────────────────────
 
 def reset():
-    """Clear conversation history, parsed data cache, and corrections log."""
-    global conversation_history, _parsed_cache
+    global conversation_history, _parsed_cache, _file_registry
     conversation_history = []
     _parsed_cache = {}
+    _file_registry = {}
     _writer_clear_log()
 
 
 def invalidate_cache():
-    """Force re-parse of Excel files on next audit (e.g. after new upload or edit)."""
     global _parsed_cache
     _parsed_cache = {}
 
@@ -605,22 +619,11 @@ def get_history() -> list[dict[str, str]]:
     return [m for m in conversation_history if m["role"] in ("user", "assistant")]
 
 
-def get_uploaded_file_summaries() -> list[dict]:
-    return [summarize_workbook(f) for f in _uploaded_files()]
-
-
 def get_corrections() -> list[dict]:
     return _writer_get_log()
 
 
 def chat(message: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
-    """
-    Send a user message through the agent loop.
-
-    The agent may invoke tools (inspect files, run audits, apply corrections,
-    read data) before composing its final answer.  Returns the same shape as
-    the original chat_service so the frontend stays compatible.
-    """
     client = _get_client()
 
     conversation_history.append({"role": "user", "content": message})
@@ -629,10 +632,10 @@ def chat(message: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
     if context:
         system_content += f"\n\n## Additional Context\n```json\n{json.dumps(context)}\n```"
 
-    file_list = _uploaded_files()
+    file_list = _all_files()
     if file_list:
-        names = ", ".join(f.name for f in file_list)
-        system_content += f"\n\nUploaded files available: {names}"
+        file_info = ", ".join(f"{fp.name} ({fp})" for fp in file_list)
+        system_content += f"\n\nRegistered files: {file_info}"
 
     log = _writer_get_log()
     if log:
