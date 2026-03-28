@@ -5,12 +5,14 @@ import AuditSidebar from './components/AuditSidebar';
 import ChatWindow from './components/ChatWindow';
 import InputBar from './components/InputBar';
 import FindingsSummaryPanel from './components/FindingsSummaryPanel';
+import CorrectionsPanel, { Correction } from './components/CorrectionsPanel';
 
 const API_BASE = 'http://localhost:8000';
 const CHAT_URL  = `${API_BASE}/api/chat`;
 const AUDIT_URL = `${API_BASE}/api/audit`;
 const UPLOAD_URL = `${API_BASE}/api/upload`;
 const FILES_URL = `${API_BASE}/api/files`;
+const CORRECTIONS_URL = `${API_BASE}/api/corrections`;
 
 interface UploadedFile {
   filename: string;
@@ -45,6 +47,8 @@ function App() {
   const [isSidebarOpen,  setIsSidebarOpen]  = useState(false);
   const [uploadedFiles,  setUploadedFiles]  = useState<UploadedFile[]>([]);
   const [isUploading,    setIsUploading]    = useState(false);
+  const [corrections,    setCorrections]    = useState<Correction[]>([]);
+  const [isCorrOpen,     setIsCorrOpen]     = useState(false);
 
   // Fetch existing uploaded files on mount
   useEffect(() => {
@@ -106,6 +110,22 @@ function App() {
     }
   }, []);
 
+  // ── Corrections polling ──────────────────────────────────────────────
+  const fetchCorrections = useCallback(async () => {
+    try {
+      const res = await fetch(CORRECTIONS_URL);
+      if (!res.ok) return;
+      const data = await res.json();
+      const list: Correction[] = data.corrections ?? [];
+      setCorrections(list);
+      if (list.length > 0) setIsCorrOpen(true);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  const handleDownloadFile = useCallback((filename: string) => {
+    window.open(`${API_BASE}/api/files/download/${encodeURIComponent(filename)}`, '_blank');
+  }, []);
+
   // ── Chat API call ─────────────────────────────────────────────────────
   const callChatAPI = useCallback(async (text: string): Promise<void> => {
     setIsLoading(true);
@@ -135,6 +155,7 @@ function App() {
             : {}),
         },
       ]);
+      fetchCorrections();
     } catch (err) {
       const detail = err instanceof Error ? err.message : 'Unknown error';
       setMessages((prev) => [
@@ -154,7 +175,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchCorrections]);
 
   const sendMessage = useCallback(
     async (text: string): Promise<void> => {
@@ -284,6 +305,13 @@ function App() {
           isLoading={isAuditLoading}
           onToggle={() => setIsPanelOpen((v) => !v)}
           onFindingClick={(msg) => { sendMessage(msg); setIsSidebarOpen(false); }}
+        />
+        <CorrectionsPanel
+          corrections={corrections}
+          isOpen={isCorrOpen}
+          onToggle={() => setIsCorrOpen((v) => !v)}
+          onDownload={handleDownloadFile}
+          modifiedFiles={[...new Set(corrections.map((c) => c.file))]}
         />
         <ChatWindow
           messages={messages}

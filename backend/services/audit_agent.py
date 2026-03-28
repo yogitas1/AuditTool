@@ -6,6 +6,10 @@ The agent has tools to:
   2. inspect / summarize a workbook
   3. parse & load Excel data into the audit engine
   4. run any combination of audits (revenue / inventory / payroll)
+  5. apply corrections directly to Excel cells
+  6. auto-fix all findings from a given audit
+  7. export a corrected copy of a file
+  8. view the corrections log
 
 All state (uploaded file paths, parsed data cache, conversation history)
 is held at module level — fine for a single-user dev tool.
@@ -31,13 +35,19 @@ from .excel_reader import (
     parse_sales_channels,
     summarize_workbook,
 )
+from .excel_writer import (
+    edit_cell,
+    export_corrected_copy,
+    get_corrections_log as _writer_get_log,
+    clear_corrections_log as _writer_clear_log,
+)
 
 load_dotenv()
 
 # ── config ───────────────────────────────────────────────────────────────
 
 MODEL = "gpt-4o"
-MAX_TOKENS = 2000
+MAX_TOKENS = 2500
 TEMPERATURE = 0.2
 UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -120,6 +130,106 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_correction",
+            "description": (
+                "Edit a single cell in an uploaded Excel file to fix a discrepancy. "
+                "Identifies the row by a key column (e.g. Transaction ID = 'TXN-002') "
+                "and sets a new value in the target column. The change is saved "
+                "to the file immediately and logged."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "Name of the uploaded Excel file to edit.",
+                    },
+                    "sheet_name": {
+                        "type": "string",
+                        "description": "Sheet name to edit within the workbook.",
+                    },
+                    "row_identifier_column": {
+                        "type": "string",
+                        "description": "Column used to locate the row (e.g. 'Transaction ID', 'Employee ID', 'SKU').",
+                    },
+                    "row_identifier_value": {
+                        "type": "string",
+                        "description": "Value to match in the identifier column (e.g. 'TXN-002', 'EMP-005').",
+                    },
+                    "target_column": {
+                        "type": "string",
+                        "description": "Column whose value should be changed (e.g. 'Amount', 'SDI Rate Applied').",
+                    },
+                    "new_value": {
+                        "type": "string",
+                        "description": "The corrected value to write into the cell.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Brief explanation of why this correction is being made.",
+                    },
+                },
+                "required": [
+                    "filename", "sheet_name", "row_identifier_column",
+                    "row_identifier_value", "target_column", "new_value", "reason",
+                ],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "auto_fix_all",
+            "description": (
+                "Run the specified audit, then automatically apply corrections "
+                "for every fixable finding directly in the uploaded Excel files. "
+                "Returns a summary of all corrections made. Use this when the "
+                "user wants all discrepancies fixed without manual intervention."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "audit_type": {
+                        "type": "string",
+                        "enum": ["revenue", "inventory", "payroll", "all"],
+                        "description": "Which audit to run and auto-fix.",
+                    },
+                },
+                "required": ["audit_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "export_corrected_file",
+            "description": (
+                "Create a timestamped backup copy of an uploaded file (the "
+                "corrected version) so the user can download it."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "Name of the file to export a corrected copy of.",
+                    },
+                },
+                "required": ["filename"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_corrections_log",
+            "description": "Return the full log of all corrections applied during this session.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 # ── module-level state ───────────────────────────────────────────────────
@@ -129,34 +239,46 @@ conversation_history: list[dict[str, Any]] = []
 _parsed_cache: dict[str, dict] = {}
 
 SYSTEM_PROMPT = """\
-You are **AuditAI**, an expert financial audit agent for small and mid-size businesses.
+You are **AuditAI**, an autonomous financial audit agent for small and mid-size businesses.
 
-You have access to tools that let you read and analyze Excel workbooks uploaded
-by the user.  Your workflow:
+You have tools to read, analyze, and **directly fix** Excel workbooks uploaded
+by the user.  You operate **without requiring human approval** for corrections —
+you identify discrepancies, fix them in the spreadsheets, and report what you did.
 
-1. When files are uploaded, **inspect** them to understand their structure.
-2. **Load and audit** the data — the audit engine will cross-reference revenue
-   records with sales channel invoices, check inventory counts against purchase
-   orders, and validate payroll against GL entries.
-3. **Present findings** clearly, grouped by severity (high → medium → low).
-4. **Answer follow-up questions** by reading raw data from the sheets.
-5. When recommending corrective actions that move money or change payroll,
-   **always ask for human approval first**.
+## Your workflow
 
-Tone: professional but approachable; use plain language; reference specific
-transaction IDs, employee names, and SKUs from the data.
+1. **Inspect** uploaded files to understand their structure.
+2. **Run audits** — the engine cross-references revenue with invoices, inventory
+   with purchase orders, and payroll with GL entries.
+3. **Auto-fix** every correctable discrepancy directly in the Excel files using
+   `apply_correction` (for individual fixes) or `auto_fix_all` (bulk).
+4. **Report** a clear summary of all changes made, grouped by audit area.
+5. **Export** corrected copies of modified files so the user can download them.
+6. **Answer follow-ups** using the raw data or the corrections log.
 
-Use markdown formatting.  Be concise but thorough.
+## What you can fix autonomously
 
-## Correction Approval Format
+- **Revenue:** Amount mismatches (update QB amount to match source invoice),
+  apply authorized discounts, flag wrong-period bookings (correct the date_booked).
+- **Inventory:** Update system counts to match expected counts, flag PO
+  shortages and adjust invoice amounts for undelivered units.
+- **Payroll:** Stop payments for terminated employees (set gross_pay to 0),
+  correct SDI withholding rates, reconcile GL entries to match payroll totals.
 
-When recommending a corrective action, append this block at the very end:
+## What you should still flag (but not auto-fix)
 
-APPROVAL_REQUIRED: [one-sentence description]
-ACCOUNTS_AFFECTED: [comma-separated]
-AMOUNT: [dollar amount with sign]
+- Unmatched transactions with no source document (need investigation).
+- Contractor misclassification (legal/HR decision).
+- Discrepancies you aren't confident about.
 
-Only one block per response.  Only for actionable corrections, not informational answers.
+For these, explain the issue and recommend next steps.
+
+## Output format
+
+- Use markdown. Be concise but thorough.
+- Reference specific IDs (TXN-002, EMP-005, SKU HA-SERUM-50, PO-2847, etc.).
+- After fixing, always show a **Corrections Summary** table.
+- After all fixes, offer to export corrected files.
 """
 
 # ── internal helpers ─────────────────────────────────────────────────────
@@ -224,6 +346,172 @@ def _run_audit(audit_type: str) -> list[dict]:
     return findings
 
 
+# ── auto-fix logic ───────────────────────────────────────────────────────
+
+def _find_file_for_category(category: str) -> Path | None:
+    for fp in _uploaded_files():
+        cat = classify_workbook(fp)
+        if cat == category:
+            return fp
+    return None
+
+
+def _auto_fix_findings(audit_type: str) -> dict[str, Any]:
+    """Run audit, then apply corrections for every fixable finding."""
+    invalidate_cache()
+    findings = _run_audit(audit_type)
+    applied: list[dict] = []
+    skipped: list[dict] = []
+
+    for f in findings:
+        result = _try_fix_finding(f)
+        if result:
+            applied.append(result)
+        else:
+            skipped.append({
+                "type": f.get("type"),
+                "explanation": f.get("explanation", ""),
+                "reason_skipped": "Cannot be auto-fixed — requires human investigation.",
+            })
+
+    invalidate_cache()
+
+    return {
+        "audit_type": audit_type,
+        "total_findings": len(findings),
+        "auto_fixed": len(applied),
+        "skipped": len(skipped),
+        "corrections": applied,
+        "needs_review": skipped,
+    }
+
+
+def _try_fix_finding(f: dict) -> dict | None:
+    """Attempt to auto-fix a single finding. Returns correction record or None."""
+    ftype = f.get("type", "")
+    audit = f.get("_audit", "")
+
+    if ftype == "amount_mismatch" and audit == "revenue":
+        qb_file = _find_file_for_category("quickbooks")
+        if not qb_file:
+            return None
+        source_amount = f.get("source_amount")
+        if source_amount is None:
+            return None
+        discount = 0
+        if f.get("severity") == "medium":
+            discount = abs(f.get("discrepancy", 0))
+        corrected_amount = source_amount + discount if discount else source_amount
+        result = edit_cell(
+            filepath=qb_file,
+            sheet_name="Revenue Transactions",
+            row_identifier_column="Transaction ID",
+            row_identifier_value=f["txn_id"],
+            target_column="Amount",
+            new_value=str(corrected_amount),
+            reason=f"Corrected to match source invoice. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    if ftype == "wrong_period" and audit == "revenue":
+        sales_file = _find_file_for_category("sales_channels")
+        if not sales_file:
+            return None
+        correct_date = f.get("transaction_date")
+        if not correct_date:
+            return None
+        result = edit_cell(
+            filepath=sales_file,
+            sheet_name="Amazon Orders",
+            row_identifier_column="QB Reference",
+            row_identifier_value=f["txn_id"],
+            target_column="Date Booked in QB",
+            new_value=correct_date,
+            reason=f"Corrected booking date to match transaction date. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    if ftype == "count_shortage" and audit == "inventory":
+        inv_file = _find_file_for_category("inventory")
+        if not inv_file:
+            return None
+        result = edit_cell(
+            filepath=inv_file,
+            sheet_name="Inventory Snapshot",
+            row_identifier_column="SKU",
+            row_identifier_value=f["sku"],
+            target_column="System Count",
+            new_value=str(f["expected_count"]),
+            reason=f"Updated system count to match expected count after physical recount. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    if ftype == "count_overage" and audit == "inventory":
+        inv_file = _find_file_for_category("inventory")
+        if not inv_file:
+            return None
+        result = edit_cell(
+            filepath=inv_file,
+            sheet_name="Inventory Snapshot",
+            row_identifier_column="SKU",
+            row_identifier_value=f["sku"],
+            target_column="System Count",
+            new_value=str(f["expected_count"]),
+            reason=f"Corrected overage — aligned system count with expected. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    if ftype == "terminated_employee_paid" and audit == "payroll":
+        pay_file = _find_file_for_category("payroll")
+        if not pay_file:
+            return None
+        result = edit_cell(
+            filepath=pay_file,
+            sheet_name="March 2026 Payroll",
+            row_identifier_column="Employee ID",
+            row_identifier_value=f["employee_id"],
+            target_column="Gross Pay",
+            new_value="0",
+            reason=f"Stopped payment for terminated employee. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    if ftype == "incorrect_ca_sdi_rate" and audit == "payroll":
+        pay_file = _find_file_for_category("payroll")
+        if not pay_file:
+            return None
+        result = edit_cell(
+            filepath=pay_file,
+            sheet_name="March 2026 Payroll",
+            row_identifier_column="Employee ID",
+            row_identifier_value=f["employee_id"],
+            target_column="SDI Rate Applied",
+            new_value=str(f["correct_rate"]),
+            reason=f"Corrected SDI rate from {f['actual_rate']} to {f['correct_rate']}. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    if ftype == "payroll_gl_discrepancy" and audit == "payroll":
+        pay_file = _find_file_for_category("payroll")
+        if not pay_file:
+            return None
+        corrected_total = f.get("gl_payroll_entry")
+        if corrected_total is None:
+            return None
+        result = edit_cell(
+            filepath=pay_file,
+            sheet_name="GL Reconciliation",
+            row_identifier_column="Source",
+            row_identifier_value="Payroll Run Total",
+            target_column="Amount",
+            new_value=str(corrected_total),
+            reason=f"Aligned payroll total with GL entry after removing terminated employee pay. {f.get('explanation', '')}",
+        )
+        return result.get("correction") if result.get("status") == "ok" else None
+
+    return None
+
+
 # ── tool dispatch ────────────────────────────────────────────────────────
 
 def _handle_tool_call(name: str, args: dict) -> str:
@@ -240,6 +528,7 @@ def _handle_tool_call(name: str, args: dict) -> str:
         return json.dumps(summarize_workbook(fp))
 
     if name == "load_and_audit":
+        invalidate_cache()
         findings = _run_audit(args["audit_type"])
         return json.dumps({
             "audit_type": args["audit_type"],
@@ -258,13 +547,43 @@ def _handle_tool_call(name: str, args: dict) -> str:
         if not rows:
             return json.dumps({"rows": []})
         headers = [str(h or "") for h in rows[0]]
-        data_rows = [dict(zip(headers, [str(v) if v is not None else "" for v in r])) for r in rows[1:] if any(v is not None for v in r)]
+        data_rows = [
+            dict(zip(headers, [str(v) if v is not None else "" for v in r]))
+            for r in rows[1:] if any(v is not None for v in r)
+        ]
         return json.dumps({"sheet": ws.title, "row_count": len(data_rows), "rows": data_rows}, default=str)
+
+    if name == "apply_correction":
+        fp = _resolve(args["filename"])
+        result = edit_cell(
+            filepath=fp,
+            sheet_name=args["sheet_name"],
+            row_identifier_column=args["row_identifier_column"],
+            row_identifier_value=args["row_identifier_value"],
+            target_column=args["target_column"],
+            new_value=args["new_value"],
+            reason=args.get("reason", ""),
+        )
+        invalidate_cache()
+        return json.dumps(result, default=str)
+
+    if name == "auto_fix_all":
+        result = _auto_fix_findings(args["audit_type"])
+        return json.dumps(result, default=str)
+
+    if name == "export_corrected_file":
+        fp = _resolve(args["filename"])
+        result = export_corrected_copy(fp)
+        return json.dumps(result, default=str)
+
+    if name == "get_corrections_log":
+        log = _writer_get_log()
+        return json.dumps({"total_corrections": len(log), "corrections": log}, default=str)
 
     return json.dumps({"error": f"Unknown tool: {name}"})
 
 
-# ── approval parsing (same logic as chat_service) ────────────────────────
+# ── approval parsing (kept for backward compat, though agent is autonomous now)
 
 _RE_ACTION   = re.compile(r'^APPROVAL_REQUIRED:\s*(.+)$',   re.MULTILINE)
 _RE_ACCOUNTS = re.compile(r'^ACCOUNTS_AFFECTED:\s*(.+)$',   re.MULTILINE)
@@ -293,14 +612,15 @@ def _parse_approval(text: str) -> tuple[str, dict | None]:
 # ── public API ───────────────────────────────────────────────────────────
 
 def reset():
-    """Clear conversation history and parsed data cache."""
+    """Clear conversation history, parsed data cache, and corrections log."""
     global conversation_history, _parsed_cache
     conversation_history = []
     _parsed_cache = {}
+    _writer_clear_log()
 
 
 def invalidate_cache():
-    """Force re-parse of Excel files on next audit (e.g. after new upload)."""
+    """Force re-parse of Excel files on next audit (e.g. after new upload or edit)."""
     global _parsed_cache
     _parsed_cache = {}
 
@@ -313,13 +633,17 @@ def get_uploaded_file_summaries() -> list[dict]:
     return [summarize_workbook(f) for f in _uploaded_files()]
 
 
+def get_corrections() -> list[dict]:
+    return _writer_get_log()
+
+
 def chat(message: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Send a user message through the agent loop.
 
-    The agent may invoke tools (inspect files, run audits, read data) before
-    composing its final answer.  Returns the same shape as the original
-    chat_service so the frontend stays compatible.
+    The agent may invoke tools (inspect files, run audits, apply corrections,
+    read data) before composing its final answer.  Returns the same shape as
+    the original chat_service so the frontend stays compatible.
     """
     client = _get_client()
 
@@ -334,12 +658,16 @@ def chat(message: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         names = ", ".join(f.name for f in file_list)
         system_content += f"\n\nUploaded files available: {names}"
 
+    log = _writer_get_log()
+    if log:
+        system_content += f"\n\nCorrections already applied this session: {len(log)}"
+
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_content},
         *conversation_history,
     ]
 
-    max_rounds = 8
+    max_rounds = 12
     total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     model_name = MODEL
 

@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from openai import OpenAIError
 from pydantic import BaseModel
 
@@ -131,6 +132,40 @@ def delete_file(filename: str):
     fp.unlink()
     audit_agent.invalidate_cache()
     return {"status": "ok", "message": f"Deleted {filename}"}
+
+
+@app.get("/api/files/download/{filename}")
+def download_file(filename: str):
+    """Download an uploaded (potentially corrected) Excel file."""
+    fp = audit_agent.UPLOAD_DIR / filename
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
+    return FileResponse(
+        path=fp,
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Corrections routes
+# ---------------------------------------------------------------------------
+
+@app.get("/api/corrections")
+def get_corrections():
+    """Return the full corrections log for this session."""
+    log = audit_agent.get_corrections()
+    return {"total": len(log), "corrections": log}
+
+
+@app.post("/api/corrections/auto-fix")
+def auto_fix(request: AuditRequest):
+    """Run audit and auto-fix all correctable findings without human approval."""
+    try:
+        result = audit_agent._auto_fix_findings(request.audit_type)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return result
 
 
 # ---------------------------------------------------------------------------
