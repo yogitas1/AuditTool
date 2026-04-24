@@ -1,12 +1,13 @@
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAIError
 from pydantic import BaseModel
 
 from services.audit_engine import run_inventory_audit, run_payroll_audit, run_revenue_audit
 from services import chat_service, audit_agent
+from services import harvest_client
 
 app = FastAPI(title="Audit Agent API", version="3.0.0")
 
@@ -235,3 +236,48 @@ def reset_chat_history():
     chat_service.reset_history()
     audit_agent.reset()
     return {"status": "ok", "message": "Conversation history cleared."}
+
+
+# ---------------------------------------------------------------------------
+# Harvest routes
+# ---------------------------------------------------------------------------
+
+def _harvest_error(exc: Exception):
+    if isinstance(exc, ValueError):
+        raise HTTPException(status_code=401, detail=str(exc))
+    raise HTTPException(status_code=502, detail=f"Harvest API error: {exc}")
+
+
+@app.get("/api/harvest/test")
+def harvest_test():
+    try:
+        return harvest_client.get_summary()
+    except Exception as exc:
+        _harvest_error(exc)
+
+
+@app.get("/api/harvest/projects")
+def harvest_projects():
+    try:
+        return {"projects": harvest_client.get_projects()}
+    except Exception as exc:
+        _harvest_error(exc)
+
+
+@app.get("/api/harvest/time-entries")
+def harvest_time_entries(
+    from_date: str = Query(..., alias="from"),
+    to_date: str = Query(..., alias="to"),
+):
+    try:
+        return {"time_entries": harvest_client.get_time_entries(from_date, to_date)}
+    except Exception as exc:
+        _harvest_error(exc)
+
+
+@app.get("/api/harvest/invoices")
+def harvest_invoices():
+    try:
+        return {"invoices": harvest_client.get_invoices()}
+    except Exception as exc:
+        _harvest_error(exc)
