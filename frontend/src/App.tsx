@@ -7,7 +7,7 @@ import InputBar from './components/InputBar';
 import FindingsSummaryPanel from './components/FindingsSummaryPanel';
 import CorrectionsPanel, { Correction } from './components/CorrectionsPanel';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = process.env.REACT_APP_API_URL ?? '';
 const CHAT_URL  = `${API_BASE}/api/chat`;
 const AUDIT_URL = `${API_BASE}/api/audit`;
 const UPLOAD_URL = `${API_BASE}/api/upload`;
