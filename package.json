@@ -2,6 +2,6 @@
   "name": "audittool",
   "private": true,
   "scripts": {
-    "vercel-build": "cd frontend && npm install && npm run build"
+    "vercel-build": "cd frontend && npm install && BUILD_PATH=../public npm run build"
   }
 }

@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "outputDirectory": "frontend/build",
   "framework": null,
   "functions": {
     "api/index.py": {
