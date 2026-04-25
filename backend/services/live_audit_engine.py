@@ -117,7 +117,7 @@ def _airtable_by_name(records: list[dict]) -> dict[str, dict]:
     """Normalised project name -> Airtable record."""
     result: dict[str, dict] = {}
     for r in records:
-        key = _norm(r.get("project_name") or "")
+        key = _norm(_text(r.get("project_name")))
         if key:
             result[key] = r
     return result
@@ -141,6 +141,15 @@ def _status_text(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _text(value: Any) -> str:
+    """Normalise text fields that may be strings or single-value lists."""
+    if isinstance(value, list):
+        if not value:
+            return ""
+        value = value[0]
+    return str(value or "").strip()
+
+
 # ---------------------------------------------------------------------------
 # Individual checks — return findings in standard format
 # ---------------------------------------------------------------------------
@@ -155,7 +164,7 @@ def _check_hours_overrun(
     seq = id_start
 
     for rec in at_records:
-        project = (rec.get("project_name") or "").strip()
+        project = _text(rec.get("project_name"))
         if not project:
             continue
         estimated = rec.get("hours_estimated")
@@ -266,11 +275,11 @@ def _check_complete_not_invoiced(
         status = _status_text(rec.get("status"))
         if status not in complete_statuses:
             continue
-        client = (rec.get("client_name") or "").strip()
+        client = _text(rec.get("client_name"))
         if client and _norm(client) in invoiced_client_set:
             continue
 
-        project = (rec.get("project_name") or _key).strip()
+        project = _text(rec.get("project_name")) or _key.strip()
         budget = rec.get("budget") or 0
 
         findings.append(_finding(
@@ -306,7 +315,7 @@ def _check_budget_at_risk(
     seq = id_start
 
     for rec in at_records:
-        project = (rec.get("project_name") or "").strip()
+        project = _text(rec.get("project_name"))
         if not project:
             continue
         if _status_text(rec.get("status")) != "in progress":
@@ -400,7 +409,7 @@ def _check_contract_missing(
     seq = id_start
 
     for rec in at_records:
-        project = (rec.get("project_name") or "").strip()
+        project = _text(rec.get("project_name"))
         if not project:
             continue
 
