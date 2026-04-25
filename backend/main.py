@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
@@ -129,18 +131,35 @@ async def upload_file(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Only .xlsx files are supported.")
 
-    dest = audit_agent.UPLOAD_DIR / file.filename
     content = await file.read()
-    dest.write_bytes(content)
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    audit_agent.register_upload(dest)
-    audit_agent.invalidate_cache()
+    # Prefer configured upload directory, but fall back to a writable temp dir
+    # on serverless/read-only filesystems.
+    candidate_dirs = [audit_agent.UPLOAD_DIR, Path(tempfile.gettempdir()) / "audittool_uploads"]
+    last_error: Exception | None = None
 
-    return {
-        "status": "ok",
-        "filename": file.filename,
-        "files": audit_agent.get_registered_files(),
-    }
+    for upload_dir in candidate_dirs:
+        try:
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            dest = upload_dir / file.filename
+            dest.write_bytes(content)
+            audit_agent.register_upload(dest)
+            audit_agent.invalidate_cache()
+            return {
+                "status": "ok",
+                "filename": file.filename,
+                "files": audit_agent.get_registered_files(),
+            }
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"Unable to save uploaded file. {last_error}",
+    ) from last_error
 
 
 # ---------------------------------------------------------------------------
