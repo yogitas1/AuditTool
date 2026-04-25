@@ -251,9 +251,11 @@ def _check_complete_not_invoiced(
     findings: list[dict[str, Any]] = []
     seq = id_start
 
+    complete_statuses = {"complete", "completed"}
+
     for _key, rec in at_by_name.items():
         status = (rec.get("status") or "").strip().lower()
-        if status != "complete":
+        if status not in complete_statuses:
             continue
         client = (rec.get("client_name") or "").strip()
         if client and _norm(client) in invoiced_client_set:
@@ -666,6 +668,46 @@ def run_full_audit() -> dict[str, Any]:
         audit_time_vs_budget(harvest_data, airtable_data)
         + audit_invoicing(harvest_data)
     )
+
+    # If Harvest has no activity in the queried period, return an explicit
+    # informational finding so users know why no financial findings appear.
+    if not h_entries:
+        findings.append(_finding(
+            fid=_id("DATA", 1),
+            audit_type="cross_system",
+            severity="low",
+            title="No Harvest time entries found for audit period",
+            description=(
+                "No Harvest time entries were returned for 2026-01-01 to 2026-12-31, "
+                "so budget and invoicing discrepancy checks cannot run yet."
+            ),
+            amount_impact=0,
+            affected_records=["Harvest"],
+            recommended_action=(
+                "Log time entries in Harvest (or adjust the audit date range) and run the live audit again."
+            ),
+            data_source="harvest",
+            requires_approval=False,
+        ))
+
+    if not h_invoices:
+        findings.append(_finding(
+            fid=_id("DATA", 2),
+            audit_type="invoicing",
+            severity="low",
+            title="No Harvest invoices found",
+            description=(
+                "No Harvest invoices were returned, so invoice aging and "
+                "invoice-vs-hours reconciliation checks are limited."
+            ),
+            amount_impact=0,
+            affected_records=["Harvest"],
+            recommended_action=(
+                "Create or sync Harvest invoices, then rerun the live audit to surface invoicing risks."
+            ),
+            data_source="harvest",
+            requires_approval=False,
+        ))
 
     # Summary
     sev: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
