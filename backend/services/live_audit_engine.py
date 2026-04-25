@@ -132,6 +132,15 @@ def _parse_date(s: str | None) -> date | None:
         return None
 
 
+def _status_text(value: Any) -> str:
+    """Normalise Airtable status values that may be strings or single-value lists."""
+    if isinstance(value, list):
+        if not value:
+            return ""
+        value = value[0]
+    return str(value or "").strip().lower()
+
+
 # ---------------------------------------------------------------------------
 # Individual checks — return findings in standard format
 # ---------------------------------------------------------------------------
@@ -254,7 +263,7 @@ def _check_complete_not_invoiced(
     complete_statuses = {"complete", "completed"}
 
     for _key, rec in at_by_name.items():
-        status = (rec.get("status") or "").strip().lower()
+        status = _status_text(rec.get("status"))
         if status not in complete_statuses:
             continue
         client = (rec.get("client_name") or "").strip()
@@ -300,7 +309,7 @@ def _check_budget_at_risk(
         project = (rec.get("project_name") or "").strip()
         if not project:
             continue
-        if (rec.get("status") or "").strip().lower() != "in progress":
+        if _status_text(rec.get("status")) != "in progress":
             continue
         budget = rec.get("budget")
         if not isinstance(budget, (int, float)) or budget <= 0:
