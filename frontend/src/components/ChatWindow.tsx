@@ -2,24 +2,34 @@ import React, { useEffect, useRef } from 'react';
 import { Message } from '../types';
 import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
+import LiveAuditProgress from './LiveAuditProgress';
+
+interface HarvestSummary  { projects_count: number; total_hours: number; }
+interface AirtableSummary { total_projects: number; total_budget: number; }
 
 interface Props {
   messages: Message[];
   isLoading: boolean;
+  isLiveAuditRunning: boolean;
+  harvestData: HarvestSummary | null;
+  airtableData: AirtableSummary | null;
   onApprove: (messageId: string) => void;
   onReject: (messageId: string) => void;
   onRetry: (errorId: string, retryText: string) => void;
 }
 
-const ChatWindow: React.FC<Props> = ({ messages, isLoading, onApprove, onReject, onRetry }) => {
+const ChatWindow: React.FC<Props> = ({
+  messages, isLoading, isLiveAuditRunning,
+  harvestData, airtableData,
+  onApprove, onReject, onRetry,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    // Scroll the container itself — more reliable than scrollIntoView
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isLiveAuditRunning]);
 
   return (
     <div className="chat-window" ref={containerRef}>
@@ -33,7 +43,10 @@ const ChatWindow: React.FC<Props> = ({ messages, isLoading, onApprove, onReject,
             onRetry={onRetry}
           />
         ))}
-        {isLoading && <TypingIndicator />}
+        {isLiveAuditRunning && (
+          <LiveAuditProgress harvestData={harvestData} airtableData={airtableData} />
+        )}
+        {isLoading && !isLiveAuditRunning && <TypingIndicator />}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "frontend/build",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" }
   ]

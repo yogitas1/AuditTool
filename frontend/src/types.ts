@@ -76,3 +76,39 @@ export interface AuditResults {
   findings_by_severity: Record<Severity, number>;
   findings: AuditFinding[];
 }
+
+// ── Live audit findings (Harvest × Airtable) ─────────────────────────────────
+
+export type LiveAuditType = 'time_budget' | 'invoicing' | 'cross_system';
+export type LiveDataSource = 'harvest' | 'airtable' | 'both';
+
+export interface LiveAuditFinding {
+  id: string;
+  audit_type: LiveAuditType;
+  severity: Severity;
+  title: string;
+  description: string;
+  amount_impact: number;
+  affected_records: string[];
+  recommended_action: string;
+  requires_approval: boolean;
+  data_source: LiveDataSource;
+}
+
+export interface LiveAuditSummary {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  total_impact: number;
+}
+
+export interface LiveAuditResult {
+  findings: LiveAuditFinding[];
+  summary: LiveAuditSummary;
+  sources: Record<string, string>;
+  data_summary: {
+    harvest: { projects: number; hours: number; invoices: number };
+    airtable: { projects: number; total_budget: number };
+  };
+}

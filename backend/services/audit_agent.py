@@ -40,7 +40,10 @@ MODEL = "gpt-4o"
 MAX_TOKENS = 2500
 TEMPERATURE = 0.2
 UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(exist_ok=True)
+except (OSError, PermissionError):
+    pass  # read-only filesystem (e.g. Vercel serverless)
 
 # ── file registry ────────────────────────────────────────────────────────
 # Maps filename -> absolute Path.  Populated by scan_directory() or

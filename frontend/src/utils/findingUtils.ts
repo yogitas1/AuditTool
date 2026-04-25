@@ -1,4 +1,4 @@
-import { AuditFinding } from '../types';
+import { AuditFinding, LiveAuditFinding } from '../types';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -78,6 +78,20 @@ export function getCompactDescription(f: AuditFinding): string {
     default:
       return f.explanation.slice(0, 90);
   }
+}
+
+// ── Live audit finding helpers ────────────────────────────────────────────────
+
+export function getLiveImpact(f: LiveAuditFinding): number {
+  return f.amount_impact;
+}
+
+export function getLiveTotalImpact(findings: LiveAuditFinding[]): number {
+  return findings.reduce((sum, f) => sum + f.amount_impact, 0);
+}
+
+export function getLiveClickMessage(f: LiveAuditFinding): string {
+  return `Tell me more about this finding: "${f.title}". ${f.description.slice(0, 160)}`;
 }
 
 // ── Contextual chat message for clicking a finding row ────────────────────────

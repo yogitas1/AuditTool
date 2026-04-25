@@ -20,6 +20,7 @@ body {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  animation: fade-in 180ms ease-out;
 }
 
 .app__main {
@@ -83,6 +84,12 @@ body {
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.brand-sprint-note {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: #9ca3af;
 }
 
 /* Sections */
@@ -350,9 +357,11 @@ body {
 .sidebar-footer {
   margin-top: auto;
   padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  row-gap: 4px;
+  column-gap: 7px;
   font-size: 12px;
   color: #9ca3af;
   border-top: 1px solid #f3f4f6;
@@ -364,6 +373,13 @@ body {
   border-radius: 50%;
   background: #22c55e;
   flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.sidebar-sprint-tag {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  color: #9ca3af;
 }
 
 /* ============================================================
@@ -1248,6 +1264,11 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .demo-hint {
   margin: 6px 0 0;
   font-size: 11px;
@@ -1370,4 +1391,519 @@ body {
   }
 
   .input-bar__hint { display: none; }
+}
+
+/* ============================================================
+   System connection cards
+   ============================================================ */
+.sys-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.sys-card {
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  transition: opacity 0.2s;
+}
+
+.sys-card--connected {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.sys-card--error {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.sys-card--dimmed {
+  opacity: 0.5;
+}
+
+.sys-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sys-card__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sys-card__dot--connected {
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.sys-card__dot--error {
+  background: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+}
+
+.sys-card__dot--loading {
+  background: #9ca3af;
+  animation: sys-pulse 1.4s ease-in-out infinite;
+}
+
+.sys-card__dot--offline {
+  background: #d1d5db;
+}
+
+@keyframes sys-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+.sys-card__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  flex: 1;
+}
+
+.sys-card__status {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.sys-card--connected .sys-card__status { color: #16a34a; }
+.sys-card--error    .sys-card__status { color: #dc2626; }
+
+.sys-card__meta {
+  margin-top: 3px;
+  padding-left: 15px;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.sys-card__meta--error { color: #dc2626; }
+
+.sys-card__badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  background: #e0f2fe;
+  color: #0369a1;
+  white-space: nowrap;
+}
+
+.sys-card__badge--soon {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+/* ---- Live data note ---- */
+.live-note {
+  font-size: 11px;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+/* ---- Start Audit button ---- */
+.btn-start-audit {
+  background: #16a34a;
+  color: #ffffff;
+  border: 1px solid #16a34a;
+  text-align: center !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-start-audit:not(:disabled):hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.btn-start-audit:disabled {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Source chip (in findings panel rows)
+   ============================================================ */
+
+.source-chip {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.source-chip--harvest {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.source-chip--airtable {
+  background: #faf5ff;
+  color: #7c3aed;
+}
+
+.source-chip--both {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.source-chip--excel {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Findings panel "Live" tag next to count */
+.fp__source-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f0fdf4;
+  color: #15803d;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   sys-card status colour (error variant)
+   ============================================================ */
+.sys-card__status--error { color: #dc2626; }
+
+/* ============================================================
+   Live audit processing steps (in chat bubble)
+   ============================================================ */
+
+.live-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.live-progress__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 2px;
+}
+
+.live-progress__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.live-progress__step--waiting {
+  opacity: 0.35;
+}
+
+.live-progress__step--running {
+  color: #374151;
+}
+
+.live-progress__step--done {
+  color: #15803d;
+}
+
+.live-progress__step--error {
+  color: #dc2626;
+}
+
+.live-progress__icon {
+  flex-shrink: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  margin-top: 1px;
+}
+
+.live-progress__text {
+  flex: 1;
+}
+
+.live-progress__spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ============================================================
+   Portal / Landing page
+   ============================================================ */
+
+.portal {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f9fafb;
+  animation: fade-in 180ms ease-out;
+}
+
+/* ── Header ── */
+.portal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 40px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.portal-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+/* Nav status pill */
+.portal-nav-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.portal-nav-status__text {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.portal-nav-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.portal-nav-dot--green {
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.portal-nav-dot--amber {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.portal-nav-dot--pulse {
+  background: #9ca3af;
+  animation: sys-pulse 1.4s ease-in-out infinite;
+}
+
+.portal-nav-dot--grey {
+  background: #d1d5db;
+}
+
+/* ── Body layout ── */
+.portal-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  flex: 1;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 48px 40px;
+  align-items: start;
+}
+
+/* ── Section ── */
+.portal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.portal-section__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.portal-section__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.portal-section__sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: #9ca3af;
+}
+
+/* ── Start audit button ── */
+.portal-start-btn {
+  text-align: center !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 12px 20px !important;
+  border-radius: 10px !important;
+}
+
+.portal-start-hint {
+  margin: -6px 0 0;
+  font-size: 11.5px;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ── Inline link (QuickBooks fallback) ── */
+.portal-inline-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-family: inherit;
+}
+
+.portal-inline-link:hover { color: #1d4ed8; }
+
+/* ── Upload slot ── */
+.upload-slot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  outline: none;
+}
+
+.upload-slot:hover,
+.upload-slot:focus-visible {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.upload-slot--loading {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.upload-slot__icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.upload-slot__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-slot__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.upload-slot__hint {
+  font-size: 11.5px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.upload-slot__arrow {
+  font-size: 16px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.upload-slot__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── Live data note ── */
+.portal-live-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  font-size: 12.5px;
+  color: #15803d;
+  line-height: 1.55;
+}
+
+.portal-live-note__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.portal-live-note strong {
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .portal-header {
+    padding: 14px 20px;
+  }
+
+  .portal-body {
+    grid-template-columns: 1fr;
+    padding: 28px 20px;
+    gap: 36px;
+  }
 }

@@ -25,6 +25,47 @@ MODEL = "gpt-4o"
 MAX_TOKENS = 1500
 TEMPERATURE = 0.3
 
+_APPROVAL_BLOCK_DOCS = """\
+## Correction Approval Format
+
+When recommending a specific corrective action that moves money, adjusts payroll, or requires contacting an external party, you MUST append a structured approval block at the very end of your response using this exact format:
+
+APPROVAL_REQUIRED: [one-sentence description, e.g. "Send invoice to Acme Corp for 12 unbilled hours at $150/hr"]
+ACCOUNTS_AFFECTED: [comma-separated accounts/systems, e.g. "Harvest Invoicing, Airtable Projects"]
+AMOUNT: [dollar amount with sign, e.g. "+$1,800.00"]
+
+Rules:
+- Place the block at the very end of your response, with no text after it
+- Each field must be on its own line with NO blank lines between the three lines
+- Only one block per response — if multiple corrections are needed, ask the user which to address first
+- Do NOT include the block for informational or analytical responses — only when proposing a single actionable correction
+"""
+
+# Used when Harvest/Airtable are live-connected
+LIVE_SYSTEM_PROMPT_TEMPLATE = """\
+You are an AI audit assistant. You are connected to the user's LIVE Harvest (time tracking) and Airtable (project management) accounts. The data you see is real and current — not sample data.
+
+The user runs a small creative services agency. They use Harvest for time tracking and invoicing, Airtable for project management, and QuickBooks for bookkeeping. Their core challenge is that these tools don't communicate with each other — data is fragmented across systems and they can't easily tell if all completed work has been invoiced, if projects are on budget, or if hours are being tracked accurately. Help them find money they may be leaving on the table and surface anything that could create a financial or operational risk.
+
+Your job:
+- Reference specific project names, hours, client names, and dollar amounts from the live data
+- Explain discrepancies in plain, non-technical language
+- When asked, draft specific corrections (invoices to create, billing conversations to have, status updates to make)
+- Always ask for human approval before suggesting any action that moves money or contacts clients
+- Be proactive — if the user says "run an audit" or "check my projects", present the live findings organized by severity
+
+Format your responses with clear sections. Use markdown. Be concise but thorough.
+
+{approval_block}
+
+## Connected Systems & Live Data
+
+```json
+{{findings_json}}
+```
+""".format(approval_block=_APPROVAL_BLOCK_DOCS)
+
+# Used when only Excel files are uploaded (no live connections)
 SYSTEM_PROMPT_TEMPLATE = """\
 You are an AI audit assistant for small and mid-size businesses. You help non-experts understand and fix financial discrepancies.
 
@@ -39,26 +80,14 @@ Your job:
 
 Format your responses with clear sections. Use markdown. Be concise but thorough.
 
-## Correction Approval Format
-
-When recommending a specific corrective action that moves money, adjusts payroll, or requires contacting an external party, you MUST append a structured approval block at the very end of your response using this exact format:
-
-APPROVAL_REQUIRED: [one-sentence description, e.g. "Reduce QuickBooks entry for TXN-002 by $200.00 to match Shopify invoice SH-4502"]
-ACCOUNTS_AFFECTED: [comma-separated accounts/systems, e.g. "Accounts Receivable, Shopify Revenue"]
-AMOUNT: [dollar amount with sign, e.g. "-$200.00" or "+$720.00"]
-
-Rules:
-- Place the block at the very end of your response, with no text after it
-- Each field must be on its own line with NO blank lines between the three lines
-- Only one block per response — if multiple corrections are needed, ask the user which to address first
-- Do NOT include the block for informational or analytical responses — only when proposing a single actionable correction
+{approval_block}
 
 ## Current Audit Findings
 
 ```json
-{findings_json}
+{{findings_json}}
 ```
-"""
+""".format(approval_block=_APPROVAL_BLOCK_DOCS)
 
 # ---------------------------------------------------------------------------
 # Approval block parsing
@@ -131,16 +160,37 @@ def _load_all_findings() -> dict[str, list]:
 
 def _build_system_message(extra_context: dict[str, Any]) -> str:
     """
-    Always loads fresh findings. Merges any extra_context from the frontend
-    (e.g. current page, selected finding) into the JSON block.
+    Builds a system message appropriate for the current data sources:
+    - If Harvest/Airtable are live-connected, use the live system prompt and
+      embed live findings + connection summaries.
+    - Otherwise fall back to the Excel/demo mode prompt with mock findings.
     """
-    findings = _load_all_findings()
-    payload: dict[str, Any] = {"audit_findings": findings}
-    if extra_context:
-        payload["frontend_context"] = extra_context
-    return SYSTEM_PROMPT_TEMPLATE.format(
-        findings_json=json.dumps(payload, indent=2)
-    )
+    live_connections: dict = extra_context.get("live_connections", {})
+    has_live = any(v for v in live_connections.values() if v)
+    live_findings: list = extra_context.get("live_findings", [])
+    has_excel: bool = bool(extra_context.get("has_excel_files"))
+
+    if has_live or live_findings:
+        template = LIVE_SYSTEM_PROMPT_TEMPLATE
+        payload: dict[str, Any] = {
+            "connected_systems": live_connections,
+        }
+        if live_findings:
+            payload["live_audit_findings"] = live_findings
+        if has_excel:
+            payload["quickbooks_excel_uploaded"] = True
+            payload["excel_audit_findings"] = _load_all_findings()
+    else:
+        template = SYSTEM_PROMPT_TEMPLATE
+        payload = {"audit_findings": _load_all_findings()}
+
+    # Pass through any other frontend context keys (e.g. selected finding)
+    passthrough = {k: v for k, v in extra_context.items()
+                   if k not in ("live_connections", "live_findings", "has_excel_files")}
+    if passthrough:
+        payload["frontend_context"] = passthrough
+
+    return template.format(findings_json=json.dumps(payload, indent=2))
 
 
 # ---------------------------------------------------------------------------

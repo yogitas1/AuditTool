@@ -7,7 +7,8 @@ from pydantic import BaseModel
 
 from services.audit_engine import run_inventory_audit, run_payroll_audit, run_revenue_audit
 from services import chat_service, audit_agent
-from services import harvest_client
+from services import harvest_client, airtable_client
+from services.live_audit_engine import run_full_audit
 
 app = FastAPI(title="Audit Agent API", version="3.0.0")
 
@@ -281,3 +282,41 @@ def harvest_invoices():
         return {"invoices": harvest_client.get_invoices()}
     except Exception as exc:
         _harvest_error(exc)
+
+
+# ---------------------------------------------------------------------------
+# Airtable routes
+# ---------------------------------------------------------------------------
+
+def _airtable_error(exc: Exception):
+    if isinstance(exc, ValueError):
+        raise HTTPException(status_code=401, detail=str(exc))
+    raise HTTPException(status_code=502, detail=f"Airtable API error: {exc}")
+
+
+@app.get("/api/airtable/test")
+def airtable_test():
+    try:
+        return airtable_client.get_summary()
+    except Exception as exc:
+        _airtable_error(exc)
+
+
+@app.get("/api/airtable/records")
+def airtable_records():
+    try:
+        return {"records": airtable_client.get_all_records()}
+    except Exception as exc:
+        _airtable_error(exc)
+
+
+# ---------------------------------------------------------------------------
+# Live cross-system audit
+# ---------------------------------------------------------------------------
+
+@app.post("/api/audit/live")
+def audit_live():
+    try:
+        return run_full_audit()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
